@@ -63,15 +63,10 @@ export const gemini: SourceDescriptor = {
       );
     }
 
-    if (!messages.length) {
-      const desc = $('meta[property="og:description"]').attr("content");
-      const ogTitle = $('meta[property="og:title"]').attr("content");
-      if (ogTitle && desc) {
-        messages.push({ role: "user", content: ogTitle.trim() });
-        messages.push({ role: "assistant", content: desc.trim() });
-      }
-    }
-
+    // Note: We intentionally do NOT fall back to og:title/og:description here.
+    // Those metadata tags are typically truncated previews, not full transcripts,
+    // and returning them would silently violate the "full conversation" contract.
+    // It is better to surface parse_failed and let the user know.
     if (!messages.length) {
       throw new ExtractError(
         "parse_failed",
