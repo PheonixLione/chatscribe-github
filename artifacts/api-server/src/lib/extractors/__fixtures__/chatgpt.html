@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Capital of France | ChatGPT</title>
+</head>
+<body>
+<div id="__next"></div>
+<script id="__NEXT_DATA__" type="application/json">
+{
+  "props": {
+    "pageProps": {
+      "serverResponse": {
+        "data": {
+          "title": "Capital of France",
+          "create_time": 1700000000,
+          "mapping": {
+            "root": {
+              "id": "root",
+              "message": null,
+              "parent": null,
+              "children": ["a"]
+            },
+            "a": {
+              "id": "a",
+              "message": {
+                "id": "a",
+                "author": { "role": "user" },
+                "content": {
+                  "content_type": "text",
+                  "parts": ["What is the capital of France?"]
+                }
+              },
+              "parent": "root",
+              "children": ["b"]
+            },
+            "b": {
+              "id": "b",
+              "message": {
+                "id": "b",
+                "author": { "role": "assistant" },
+                "content": {
+                  "content_type": "text",
+                  "parts": ["The capital of France is **Paris**."]
+                },
+                "metadata": { "model_slug": "gpt-4o" }
+              },
+              "parent": "a",
+              "children": ["c"]
+            },
+            "c": {
+              "id": "c",
+              "message": {
+                "id": "c",
+                "author": { "role": "user" },
+                "content": {
+                  "content_type": "text",
+                  "parts": ["And of Germany?"]
+                }
+              },
+              "parent": "b",
+              "children": ["d"]
+            },
+            "d": {
+              "id": "d",
+              "message": {
+                "id": "d",
+                "author": { "role": "assistant" },
+                "content": {
+                  "content_type": "text",
+                  "parts": ["Berlin."]
+                },
+                "metadata": { "model_slug": "gpt-4o" }
+              },
+              "parent": "c",
+              "children": []
+            }
+          }
+        }
+      }
+    }
+  }
+}
+</script>
+</body>
+</html>
