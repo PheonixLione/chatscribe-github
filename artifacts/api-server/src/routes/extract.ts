@@ -17,8 +17,12 @@ const extractLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   handler: (_req, res) => {
+    // Distinct semantic code so clients can tell throttling apart from a
+    // genuine upstream fetch failure. Not part of ExtractErrorCode (which
+    // describes per-extractor outcomes), but the frontend renders the
+    // `message` directly so any string is safe here.
     res.status(429).json({
-      error: "fetch_failed",
+      error: "rate_limited",
       message:
         "You're sending requests too quickly. Please wait a moment and try again.",
     });
