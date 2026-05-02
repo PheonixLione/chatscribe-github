@@ -199,6 +199,42 @@ describe("extractors — redirect SSRF rejection", () => {
     );
   });
 
+  // Regression: deterministic policy failures (allowlist rejection,
+  // non-http(s) redirect) must surface in well under a second instead of
+  // falling through to the per-extractor headless fallback (which used
+  // to make these failures take ~90s and starve the browser pool).
+  it("fails fast — disallowed redirect resolves in under 1s", async () => {
+    installFetchMock(() => ({
+      status: 302,
+      headers: { location: "https://evil.example.com/steal" },
+    }));
+    const t0 = Date.now();
+    await assert.rejects(() =>
+      extractFromUrl("https://chatgpt.com/share/redirect-fast"),
+    );
+    const elapsed = Date.now() - t0;
+    assert.ok(
+      elapsed < 1000,
+      `expected <1000ms, took ${elapsed}ms — headless fallback is being invoked`,
+    );
+  });
+
+  it("fails fast — non-http(s) redirect resolves in under 1s", async () => {
+    installFetchMock(() => ({
+      status: 302,
+      headers: { location: "file:///etc/passwd" },
+    }));
+    const t0 = Date.now();
+    await assert.rejects(() =>
+      extractFromUrl("https://chatgpt.com/share/file-fast"),
+    );
+    const elapsed = Date.now() - t0;
+    assert.ok(
+      elapsed < 1000,
+      `expected <1000ms, took ${elapsed}ms — headless fallback is being invoked`,
+    );
+  });
+
   it("allows a same-host redirect (chatgpt.com → chatgpt.com)", async () => {
     const html = loadFixture("chatgpt.html");
     let calls = 0;

@@ -39,17 +39,20 @@ export async function fetchPage(
     try {
       target = new URL(current);
     } catch {
+      // Status 400 marks this as a deterministic URL-policy failure
+      // (see `isUnrecoverable` in ./types). Without it, the per-extractor
+      // fallback chain would burn ~90s on a doomed headless retry.
       throw new ExtractError(
         "fetch_failed",
         "Invalid redirect target.",
-        { source: opts.source },
+        { source: opts.source, status: 400 },
       );
     }
     if (target.protocol !== "http:" && target.protocol !== "https:") {
       throw new ExtractError(
         "fetch_failed",
         "Refused to follow a non-http(s) redirect.",
-        { source: opts.source },
+        { source: opts.source, status: 400 },
       );
     }
     if (!opts.isAllowedHost(target)) {
@@ -92,7 +95,7 @@ export async function fetchPage(
         throw new ExtractError(
           "fetch_failed",
           "Received a redirect without a destination.",
-          { source: opts.source },
+          { source: opts.source, status: 400 },
         );
       }
       current = new URL(loc, target).toString();
@@ -105,7 +108,7 @@ export async function fetchPage(
   throw new ExtractError(
     "fetch_failed",
     "Too many redirects.",
-    { source: opts.source },
+    { source: opts.source, status: 400 },
   );
 }
 

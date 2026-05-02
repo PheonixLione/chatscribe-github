@@ -11,6 +11,7 @@ import {
 } from "./json";
 import {
   ExtractError,
+  isUnrecoverable,
   type ChatMessage,
   type Conversation,
   type SourceDescriptor,
@@ -50,7 +51,18 @@ export const chatgpt: SourceDescriptor = {
       if (conv) return conv;
     } catch (err) {
       if (err instanceof ExtractError) {
+        // Fail fast on terminal errors a headless render can't recover
+        // from, so we don't burn ~90s on a doomed retry. We treat 401/403
+        // as recoverable here because Cloudflare can serve its challenge
+        // with those codes — a real browser solves the JS challenge.
+        if (err.code === "unsupported_url") throw err;
         if (err.code === "not_public" && err.status === 404) throw err;
+        if (
+          err.code === "fetch_failed" &&
+          (err.status === 400 || err.status === 413)
+        ) {
+          throw err;
+        }
         staticErr = err;
       }
     }
@@ -83,7 +95,7 @@ export const chatgpt: SourceDescriptor = {
       const conv = parseRenderedHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (err instanceof ExtractError && err.code === "not_public") throw err;
+      if (isUnrecoverable(err)) throw err;
       // fall through
     }
 

@@ -3,6 +3,7 @@ import { fetchPage } from "./http";
 import { renderPage } from "./headless";
 import { htmlToMarkdown } from "./markdown";
 import { walkAll } from "./json";
+import { isUnrecoverable } from "./types";
 import {
   ExtractError,
   type ChatMessage,
@@ -52,7 +53,10 @@ export const gemini: SourceDescriptor = {
       const fromStatic = parseStaticHtml(html, url.toString());
       if (fromStatic) return fromStatic;
     } catch (err) {
-      if (err instanceof ExtractError && err.code === "not_public") throw err;
+      // Fail fast on terminal errors (not_public 404/private, or a
+      // redirect that hopped off the host allowlist) so we don't burn
+      // ~150s on a headless retry that will hit the same wall.
+      if (isUnrecoverable(err)) throw err;
       staticErr = err instanceof ExtractError ? err : null;
     }
 

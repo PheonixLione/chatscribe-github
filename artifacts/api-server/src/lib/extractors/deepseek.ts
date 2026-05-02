@@ -6,6 +6,7 @@ import { htmlToMarkdown } from "./markdown";
 import { isObject, walkAll } from "./json";
 import {
   ExtractError,
+  isUnrecoverable,
   type ChatMessage,
   type Conversation,
   type SourceDescriptor,
@@ -48,7 +49,10 @@ export const deepseek: SourceDescriptor = {
         if (conv) return conv;
       }
     } catch (err) {
-      if (err instanceof ExtractError && err.code === "not_public") throw err;
+      // Fail fast on terminal errors (404/private or a redirect that
+      // hopped off the host allowlist) so we don't burn ~90s on a
+      // headless retry that will hit the same wall.
+      if (isUnrecoverable(err)) throw err;
       staticErr = err instanceof ExtractError ? err : null;
     }
 
@@ -76,7 +80,7 @@ export const deepseek: SourceDescriptor = {
       const conv = parseHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (err instanceof ExtractError && err.code === "not_public") throw err;
+      if (isUnrecoverable(err)) throw err;
       // fall through
     }
 

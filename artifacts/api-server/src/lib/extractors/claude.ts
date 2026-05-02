@@ -6,6 +6,7 @@ import { htmlToMarkdown } from "./markdown";
 import { getArray, getString, isObject, walk } from "./json";
 import {
   ExtractError,
+  isUnrecoverable,
   type ChatMessage,
   type Conversation,
   type SourceDescriptor,
@@ -47,8 +48,18 @@ export const claude: SourceDescriptor = {
       // Claude — the headless render distinguishes a real deleted page
       // (which returns 404 in-browser too) from a CF gate. Only a 404/410
       // from the static path is treated as definitively gone.
+      // We also fail fast on `unsupported_url` (e.g. a redirect that
+      // hopped off the allowlist) since a headless render would hit the
+      // same allowlist when it followed the same redirect.
       if (err instanceof ExtractError) {
+        if (err.code === "unsupported_url") throw err;
         if (err.code === "not_public" && err.status === 404) throw err;
+        if (
+          err.code === "fetch_failed" &&
+          (err.status === 400 || err.status === 413)
+        ) {
+          throw err;
+        }
         staticErr = err;
       }
     }
@@ -73,7 +84,7 @@ export const claude: SourceDescriptor = {
       const conv = parseRenderedHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (err instanceof ExtractError && err.code === "not_public") throw err;
+      if (isUnrecoverable(err)) throw err;
       // fall through
     }
 
