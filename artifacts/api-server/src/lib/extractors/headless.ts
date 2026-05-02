@@ -156,8 +156,16 @@ export async function renderPage(
     });
     await page.setViewport({ width: 1280, height: 900 });
 
-    // Block heavy assets we don't need; speeds things up considerably and
-    // avoids fonts/images stalling navigation.
+    // Hide the obvious automation tells that bot challenges (Cloudflare
+    // Turnstile, AWS WAF, etc.) sniff for. Without this, claude.ai's
+    // managed challenge never auto-clears.
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+    });
+
+    // Block heavy assets we don't need; speeds things up considerably,
+    // avoids fonts/images stalling navigation, and prevents SSRF-style
+    // egress to attacker-controlled image URLs embedded in shared pages.
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const t = req.resourceType();
