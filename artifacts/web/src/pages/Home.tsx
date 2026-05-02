@@ -1,0 +1,267 @@
+import React, { useState, useEffect } from "react";
+import { useExtractConversation, useListSupportedSources, useHealthCheck, Conversation, ExtractError } from "@workspace/api-client-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Copy, Download, FileText, File, ExternalLink,
+  ChevronLeft, Sparkles, Loader2, XCircle
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { 
+  copyToClipboard, 
+  downloadBlob, 
+  downloadPdf, 
+  generateMarkdownText, 
+  generatePlainText 
+} from "@/lib/exportUtils";
+import { useToast } from "@/hooks/use-toast";
+
+function StatusIndicator() {
+  const { data: health, isSuccess } = useHealthCheck();
+  return (
+    <div 
+      className={`fixed bottom-4 right-4 w-2 h-2 rounded-full ${isSuccess ? 'bg-emerald-500' : 'bg-muted'} transition-colors duration-1000`} 
+      title={isSuccess ? "API Connected" : "Connecting..."}
+    />
+  );
+}
+
+export function Home() {
+  const [url, setUrl] = useState("");
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  
+  const extractMutation = useExtractConversation();
+  const { data: sourcesData } = useListSupportedSources();
+  const { toast } = useToast();
+
+  const handleExtract = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url) return;
+    
+    extractMutation.mutate(
+      { data: { url } },
+      {
+        onSuccess: (data) => {
+          setConversation(data);
+        },
+        onError: (err: any) => {
+          // Error handling done in render
+        }
+      }
+    );
+  };
+
+  const reset = () => {
+    setConversation(null);
+    setUrl("");
+    extractMutation.reset();
+  };
+
+  const handleCopy = async () => {
+    if (!conversation) return;
+    const md = generateMarkdownText(conversation);
+    try {
+      await copyToClipboard(md);
+      toast({ title: "Copied to clipboard", description: "Markdown text copied successfully." });
+    } catch (err) {
+      toast({ title: "Copy failed", description: (err as Error)?.message || "Could not access the clipboard.", variant: "destructive" });
+    }
+  };
+
+  const handleDownloadMd = () => {
+    if (!conversation) return;
+    const md = generateMarkdownText(conversation);
+    const blob = new Blob([md], { type: "text/markdown" });
+    downloadBlob(blob, `chat-extract-${Date.now()}.md`);
+  };
+
+  const handleDownloadTxt = () => {
+    if (!conversation) return;
+    const txt = generatePlainText(conversation);
+    const blob = new Blob([txt], { type: "text/plain" });
+    downloadBlob(blob, `chat-extract-${Date.now()}.txt`);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!conversation) return;
+    toast({ title: "Generating PDF...", description: "This might take a moment." });
+    try {
+      await downloadPdf("conversation-content", `chat-extract-${Date.now()}.pdf`);
+      toast({ title: "PDF Downloaded" });
+    } catch (err) {
+      toast({ title: "PDF failed", description: (err as Error)?.message || "Could not generate the PDF.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+      <StatusIndicator />
+      
+      <main className="max-w-4xl mx-auto px-4 py-12 sm:py-24">
+        <AnimatePresence mode="wait">
+          {!conversation && !extractMutation.isPending && (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+              transition={{ duration: 0.3 }}
+              className="max-w-2xl mx-auto space-y-12"
+            >
+              <div className="space-y-4 text-center">
+                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
+                  Chat Extractor
+                </h1>
+                <p className="text-lg text-muted-foreground font-mono">
+                  Paste a public AI chat link. Get the clean markdown.
+                </p>
+              </div>
+
+              <form onSubmit={handleExtract} className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-primary opacity-20 group-hover:opacity-40 blur transition duration-500 rounded-lg"></div>
+                <div className="relative flex items-center bg-card border border-border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all">
+                  <div className="pl-4 text-muted-foreground">
+                    <ExternalLink className="w-5 h-5" />
+                  </div>
+                  <Input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://chatgpt.com/share/..."
+                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 text-lg py-6 placeholder:text-muted-foreground/50 h-auto"
+                    autoFocus
+                  />
+                  <Button 
+                    type="submit" 
+                    disabled={!url}
+                    className="mr-2 px-8 py-5 h-auto text-base font-semibold"
+                  >
+                    Extract
+                  </Button>
+                </div>
+              </form>
+
+              {extractMutation.isError && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-destructive/10 border border-destructive/20 text-destructive px-6 py-4 rounded-lg flex items-start gap-3"
+                >
+                  <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-sm">Extraction failed</h3>
+                    <p className="text-sm opacity-90 mt-1">
+                      {((extractMutation.error as any)?.data as ExtractError)?.message || (extractMutation.error as any)?.message || "An unexpected error occurred."}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              <div className="pt-8 border-t border-border">
+                <p className="text-xs font-mono text-muted-foreground mb-4 uppercase tracking-wider text-center">Supported Platforms</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {sourcesData?.sources.map(source => (
+                    <div key={source.source} className="px-3 py-1.5 rounded-md bg-secondary/50 border border-border/50 text-sm font-medium text-muted-foreground">
+                      {source.label}
+                    </div>
+                  ))}
+                  {!sourcesData && <div className="text-sm text-muted-foreground/50 italic">Loading supported platforms...</div>}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {extractMutation.isPending && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, filter: "blur(4px)" }}
+              className="flex flex-col items-center justify-center py-24 space-y-6"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                <Loader2 className="w-12 h-12 text-primary animate-spin relative" />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-semibold text-white">Extracting conversation...</h3>
+                <p className="text-muted-foreground font-mono text-sm">Fetching and parsing data from the source</p>
+              </div>
+            </motion.div>
+          )}
+
+          {conversation && (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="space-y-8"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" onClick={reset} className="shrink-0 -ml-2 text-muted-foreground hover:text-foreground">
+                      <ChevronLeft className="w-5 h-5" />
+                    </Button>
+                    <span className="px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono uppercase tracking-wider font-semibold">
+                      {conversation.sourceLabel}
+                    </span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    {conversation.title || "Extracted Conversation"}
+                  </h2>
+                  <a href={conversation.url} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 inline-flex">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    {conversation.url}
+                  </a>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={handleCopy} variant="secondary" className="gap-2">
+                    <Copy className="w-4 h-4" /> Copy
+                  </Button>
+                  <Button onClick={handleDownloadMd} variant="secondary" className="gap-2">
+                    <Download className="w-4 h-4" /> .md
+                  </Button>
+                  <Button onClick={handleDownloadTxt} variant="secondary" className="gap-2">
+                    <FileText className="w-4 h-4" /> .txt
+                  </Button>
+                  <Button onClick={handleDownloadPdf} variant="secondary" className="gap-2">
+                    <File className="w-4 h-4" /> .pdf
+                  </Button>
+                </div>
+              </div>
+
+              <div id="conversation-content" className="space-y-8 pb-24">
+                {conversation.messages.map((msg, idx) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    key={idx} 
+                    className={`flex flex-col space-y-3 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <div className={`flex items-center gap-2 text-sm font-mono tracking-wider ${msg.role === 'user' ? 'text-muted-foreground' : 'text-primary'}`}>
+                      {msg.role === 'assistant' && <Sparkles className="w-4 h-4" />}
+                      <span className="uppercase font-semibold">
+                        {msg.role} {msg.model && <span className="opacity-60 normal-case font-normal ml-1">({msg.model})</span>}
+                      </span>
+                    </div>
+                    <div className={`w-full max-w-[90%] sm:max-w-[85%] rounded-xl p-5 sm:p-6 ${
+                      msg.role === 'user' 
+                        ? 'bg-secondary text-secondary-foreground rounded-tr-sm' 
+                        : 'bg-card border border-border shadow-sm rounded-tl-sm'
+                    }`}>
+                      <MarkdownRenderer content={msg.content} />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}

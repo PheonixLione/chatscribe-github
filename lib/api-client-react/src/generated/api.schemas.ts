@@ -8,3 +8,93 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ExtractRequest {
+  /**
+   * The public share URL of an AI chat conversation.
+   * @minLength 1
+   */
+  url: string;
+}
+
+/**
+ * Speaker role for a single message.
+ */
+export type ChatRole = (typeof ChatRole)[keyof typeof ChatRole];
+
+export const ChatRole = {
+  user: "user",
+  assistant: "assistant",
+  system: "system",
+  tool: "tool",
+} as const;
+
+export interface ChatMessage {
+  role: ChatRole;
+  /** The full text content of the message in Markdown. */
+  content: string;
+  /** The model name responsible for the message, when known. */
+  model?: string;
+}
+
+/**
+ * The platform that hosted the conversation.
+ */
+export type ChatSource = (typeof ChatSource)[keyof typeof ChatSource];
+
+export const ChatSource = {
+  chatgpt: "chatgpt",
+  claude: "claude",
+  gemini: "gemini",
+  grok: "grok",
+  perplexity: "perplexity",
+  deepseek: "deepseek",
+} as const;
+
+export interface Conversation {
+  source: ChatSource;
+  /** Human readable platform name (e.g. "ChatGPT"). */
+  sourceLabel: string;
+  /** The conversation title, when available. */
+  title?: string;
+  /** The original share URL that was extracted. */
+  url: string;
+  messages: ChatMessage[];
+  extractedAt: string;
+}
+
+/**
+ * Stable, machine-readable error codes:
+  * `unsupported_url` — URL was not recognized as a supported share link.
+  * `not_public` — Link requires login, was deleted, or is private.
+  * `fetch_failed` — The remote site refused or failed the request.
+  * `parse_failed` — The page was fetched but could not be parsed.
+
+ */
+export type ExtractErrorCode =
+  (typeof ExtractErrorCode)[keyof typeof ExtractErrorCode];
+
+export const ExtractErrorCode = {
+  unsupported_url: "unsupported_url",
+  not_public: "not_public",
+  fetch_failed: "fetch_failed",
+  parse_failed: "parse_failed",
+} as const;
+
+export interface ExtractError {
+  error: ExtractErrorCode;
+  /** Human readable description of the error. */
+  message: string;
+  source?: ChatSource;
+}
+
+export interface SupportedSource {
+  source: ChatSource;
+  label: string;
+  urlPatterns: string[];
+  example: string;
+}
+
+export type ListSupportedSources200 = {
+  sources: SupportedSource[];
+};

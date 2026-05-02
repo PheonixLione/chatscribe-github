@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: extract
+    description: AI chat conversation extraction
 paths:
   /healthz:
     get:
@@ -24,6 +26,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /extract:
+    post:
+      operationId: extractConversation
+      tags: [extract]
+      summary: Extract a conversation from a public AI chat share link
+      description: |
+        Accepts a public share URL from a supported AI chat platform
+        (ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) and returns
+        the full ordered list of messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractRequest"
+      responses:
+        "200":
+          description: Conversation extracted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          description: The URL is not recognized as a supported AI chat share link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractError"
+        "404":
+          description: The conversation is private, deleted, or not accessible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractError"
+        "502":
+          description: The remote site could not be fetched or its content could not be parsed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractError"
+  /sources:
+    get:
+      operationId: listSupportedSources
+      tags: [extract]
+      summary: List supported AI chat platforms
+      description: Returns the list of platforms the extractor supports along with example URLs.
+      responses:
+        "200":
+          description: Supported sources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SupportedSource"
+                required:
+                  - sources
 components:
   schemas:
     HealthStatus:
@@ -33,4 +95,105 @@ components:
           type: string
       required:
         - status
-
+    ExtractRequest:
+      type: object
+      properties:
+        url:
+          type: string
+          description: The public share URL of an AI chat conversation.
+          minLength: 1
+      required:
+        - url
+    ChatRole:
+      type: string
+      enum: [user, assistant, system, tool]
+      description: Speaker role for a single message.
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/ChatRole"
+        content:
+          type: string
+          description: The full text content of the message in Markdown.
+        model:
+          type: string
+          description: The model name responsible for the message, when known.
+      required:
+        - role
+        - content
+    ChatSource:
+      type: string
+      enum: [chatgpt, claude, gemini, grok, perplexity, deepseek]
+      description: The platform that hosted the conversation.
+    Conversation:
+      type: object
+      properties:
+        source:
+          $ref: "#/components/schemas/ChatSource"
+        sourceLabel:
+          type: string
+          description: Human readable platform name (e.g. "ChatGPT").
+        title:
+          type: string
+          description: The conversation title, when available.
+        url:
+          type: string
+          description: The original share URL that was extracted.
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        extractedAt:
+          type: string
+          format: date-time
+      required:
+        - source
+        - sourceLabel
+        - url
+        - messages
+        - extractedAt
+    ExtractErrorCode:
+      type: string
+      enum:
+        - unsupported_url
+        - not_public
+        - fetch_failed
+        - parse_failed
+      description: |
+        Stable, machine-readable error codes:
+          * `unsupported_url` — URL was not recognized as a supported share link.
+          * `not_public` — Link requires login, was deleted, or is private.
+          * `fetch_failed` — The remote site refused or failed the request.
+          * `parse_failed` — The page was fetched but could not be parsed.
+    ExtractError:
+      type: object
+      properties:
+        error:
+          $ref: "#/components/schemas/ExtractErrorCode"
+        message:
+          type: string
+          description: Human readable description of the error.
+        source:
+          $ref: "#/components/schemas/ChatSource"
+      required:
+        - error
+        - message
+    SupportedSource:
+      type: object
+      properties:
+        source:
+          $ref: "#/components/schemas/ChatSource"
+        label:
+          type: string
+        urlPatterns:
+          type: array
+          items:
+            type: string
+        example:
+          type: string
+      required:
+        - source
+        - label
+        - urlPatterns
+        - example

@@ -5,18 +5,27 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  Conversation,
+  ExtractError,
+  ExtractRequest,
+  HealthStatus,
+  ListSupportedSources200,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -92,6 +101,172 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Accepts a public share URL from a supported AI chat platform
+(ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) and returns
+the full ordered list of messages.
+
+ * @summary Extract a conversation from a public AI chat share link
+ */
+export const getExtractConversationUrl = () => {
+  return `/api/extract`;
+};
+
+export const extractConversation = async (
+  extractRequest: ExtractRequest,
+  options?: RequestInit,
+): Promise<Conversation> => {
+  return customFetch<Conversation>(getExtractConversationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(extractRequest),
+  });
+};
+
+export const getExtractConversationMutationOptions = <
+  TError = ErrorType<ExtractError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractConversation>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof extractConversation>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  const mutationKey = ["extractConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof extractConversation>>,
+    { data: BodyType<ExtractRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return extractConversation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ExtractConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof extractConversation>>
+>;
+export type ExtractConversationMutationBody = BodyType<ExtractRequest>;
+export type ExtractConversationMutationError = ErrorType<ExtractError>;
+
+/**
+ * @summary Extract a conversation from a public AI chat share link
+ */
+export const useExtractConversation = <
+  TError = ErrorType<ExtractError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof extractConversation>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof extractConversation>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  return useMutation(getExtractConversationMutationOptions(options));
+};
+
+/**
+ * Returns the list of platforms the extractor supports along with example URLs.
+ * @summary List supported AI chat platforms
+ */
+export const getListSupportedSourcesUrl = () => {
+  return `/api/sources`;
+};
+
+export const listSupportedSources = async (
+  options?: RequestInit,
+): Promise<ListSupportedSources200> => {
+  return customFetch<ListSupportedSources200>(getListSupportedSourcesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSupportedSourcesQueryKey = () => {
+  return [`/api/sources`] as const;
+};
+
+export const getListSupportedSourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSupportedSources>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSupportedSources>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSupportedSourcesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSupportedSources>>
+  > = ({ signal }) => listSupportedSources({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSupportedSources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSupportedSourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSupportedSources>>
+>;
+export type ListSupportedSourcesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supported AI chat platforms
+ */
+
+export function useListSupportedSources<
+  TData = Awaited<ReturnType<typeof listSupportedSources>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSupportedSources>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSupportedSourcesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

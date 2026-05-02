@@ -6,4 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./chatMessage";
+export * from "./chatRole";
+export * from "./chatSource";
+export * from "./conversation";
+export * from "./extractError";
+export * from "./extractErrorCode";
+export * from "./extractRequest";
 export * from "./healthStatus";
+export * from "./listSupportedSources200";
+export * from "./supportedSource";

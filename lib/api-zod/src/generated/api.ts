@@ -14,3 +14,64 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Accepts a public share URL from a supported AI chat platform
+(ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) and returns
+the full ordered list of messages.
+
+ * @summary Extract a conversation from a public AI chat share link
+ */
+
+export const ExtractConversationBody = zod.object({
+  url: zod
+    .string()
+    .min(1)
+    .describe("The public share URL of an AI chat conversation."),
+});
+
+export const ExtractConversationResponse = zod.object({
+  source: zod
+    .enum(["chatgpt", "claude", "gemini", "grok", "perplexity", "deepseek"])
+    .describe("The platform that hosted the conversation."),
+  sourceLabel: zod
+    .string()
+    .describe('Human readable platform name (e.g. \"ChatGPT\").'),
+  title: zod
+    .string()
+    .optional()
+    .describe("The conversation title, when available."),
+  url: zod.string().describe("The original share URL that was extracted."),
+  messages: zod.array(
+    zod.object({
+      role: zod
+        .enum(["user", "assistant", "system", "tool"])
+        .describe("Speaker role for a single message."),
+      content: zod
+        .string()
+        .describe("The full text content of the message in Markdown."),
+      model: zod
+        .string()
+        .optional()
+        .describe("The model name responsible for the message, when known."),
+    }),
+  ),
+  extractedAt: zod.coerce.date(),
+});
+
+/**
+ * Returns the list of platforms the extractor supports along with example URLs.
+ * @summary List supported AI chat platforms
+ */
+export const ListSupportedSourcesResponse = zod.object({
+  sources: zod.array(
+    zod.object({
+      source: zod
+        .enum(["chatgpt", "claude", "gemini", "grok", "perplexity", "deepseek"])
+        .describe("The platform that hosted the conversation."),
+      label: zod.string(),
+      urlPatterns: zod.array(zod.string()),
+      example: zod.string(),
+    }),
+  ),
+});
