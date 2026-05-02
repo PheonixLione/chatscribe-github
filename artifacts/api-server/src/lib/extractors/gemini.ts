@@ -1,10 +1,10 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import { fetchPage } from "./http";
 import { htmlToMarkdown } from "./markdown";
 import {
   ExtractError,
   type ChatMessage,
-  type Conversation,
   type SourceDescriptor,
 } from "./types";
 
@@ -30,23 +30,19 @@ export const gemini: SourceDescriptor = {
     const html = await fetchPage(url.toString(), {
       source: SOURCE,
       isAllowedHost: (u) => {
-        // Gemini publishes share links via g.co that 30x to gemini.google.com.
-        // Allow either host on every hop.
+        // g.co share links 30x to gemini.google.com — allow either host on every hop.
         const h = u.hostname.toLowerCase();
         return h === "g.co" || h === "gemini.google.com" || h === "www.gemini.google.com";
       },
     });
     const $ = cheerio.load(html);
 
-    // Gemini share pages render the user prompt and model response inside
-    // distinct containers. Walk the DOM in document order so multi-turn
-    // conversations stay correctly ordered.
     const messages: ChatMessage[] = [];
     const USER_SEL = "user-query, [data-test-id='user-query'], .user-query";
     const MODEL_SEL =
       "model-response, [data-test-id='model-response'], .model-response, message-content";
     $(`${USER_SEL}, ${MODEL_SEL}`).each((_, el) => {
-      const tagName = (el as any).name || "";
+      const tagName = (el as Element).name?.toLowerCase() ?? "";
       const cls = $(el).attr("class") || "";
       const isUser =
         tagName === "user-query" ||
@@ -57,7 +53,6 @@ export const gemini: SourceDescriptor = {
       messages.push({ role: isUser ? "user" : "assistant", content });
     });
 
-    // Pattern B: turn-based containers in document order
     if (!messages.length) {
       $(".conversation-container, .chat-container, [data-test-id='turn']").each(
         (_, el) => {
@@ -68,7 +63,6 @@ export const gemini: SourceDescriptor = {
       );
     }
 
-    // Pattern C: meta og:description fallback (single-turn)
     if (!messages.length) {
       const desc = $('meta[property="og:description"]').attr("content");
       const ogTitle = $('meta[property="og:title"]').attr("content");

@@ -2,9 +2,15 @@ import * as cheerio from "cheerio";
 import { fetchPage } from "./http";
 import { htmlToMarkdown } from "./markdown";
 import {
+  getArray,
+  getObject,
+  getString,
+  isObject,
+  walk,
+} from "./json";
+import {
   ExtractError,
   type ChatMessage,
-  type Conversation,
   type SourceDescriptor,
 } from "./types";
 
@@ -25,14 +31,16 @@ export const chatgpt: SourceDescriptor = {
     );
   },
   async extract(url) {
-    const html = await fetchPage(url.toString(), { source: SOURCE, isAllowedHost: (u) => chatgpt.matches(u) });
+    const html = await fetchPage(url.toString(), {
+      source: SOURCE,
+      isAllowedHost: (u) => chatgpt.matches(u),
+    });
     const $ = cheerio.load(html);
 
-    // ChatGPT embeds a Next.js __NEXT_DATA__ JSON blob with the full thread.
     const next = $("script#__NEXT_DATA__").first().text();
     if (next) {
       try {
-        const data = JSON.parse(next);
+        const data: unknown = JSON.parse(next);
         const conv = findChatGPTConversation(data);
         if (conv) {
           return {
@@ -49,13 +57,14 @@ export const chatgpt: SourceDescriptor = {
       }
     }
 
-    // Fallback: parse rendered transcript.
     const messages: ChatMessage[] = [];
     $("[data-message-author-role]").each((_, el) => {
       const role = $(el).attr("data-message-author-role") || "";
-      const html = $(el).find('[data-message-id], .markdown, .prose').first().html() ||
-        $(el).html() || "";
-      const content = htmlToMarkdown(html);
+      const inner =
+        $(el).find('[data-message-id], .markdown, .prose').first().html() ||
+        $(el).html() ||
+        "";
+      const content = htmlToMarkdown(inner);
       if (!content.trim()) return;
       messages.push({
         role: role === "user" ? "user" : role === "system" ? "system" : "assistant",
@@ -87,52 +96,42 @@ interface FoundConv {
 }
 
 function findChatGPTConversation(data: unknown): FoundConv | null {
-  // Walk the JSON looking for an object that contains a `mapping` of nodes
-  // with `message.author.role` and `message.content.parts`.
   const found = walk(data, (v) => {
+    const mapping = getObject(v, "mapping");
+    if (!mapping) return null;
+    const sample = Object.values(mapping)[0];
     if (
-      v &&
-      typeof v === "object" &&
-      "mapping" in (v as object) &&
-      (v as any).mapping &&
-      typeof (v as any).mapping === "object"
+      isObject(sample) &&
+      "id" in sample &&
+      ("message" in sample || "children" in sample)
     ) {
-      const mapping = (v as any).mapping as Record<string, any>;
-      const sample = Object.values(mapping)[0];
-      if (
-        sample &&
-        typeof sample === "object" &&
-        "id" in sample &&
-        ("message" in sample || "children" in sample)
-      ) {
-        return v;
-      }
+      return v;
     }
     return null;
   });
-  if (!found) return null;
-  const obj = found as any;
-  const mapping = obj.mapping as Record<string, any>;
-  const title: string | undefined =
-    typeof obj.title === "string" ? obj.title : undefined;
+  if (!isObject(found)) return null;
 
-  // Find root (parent === null) then walk children depth-first picking the first child
-  // (ChatGPT's linear share = always first child branch).
-  const rootId =
-    Object.values(mapping).find((n: any) => !n.parent)?.id ??
-    Object.keys(mapping)[0];
+  const mapping = getObject(found, "mapping");
+  if (!mapping) return null;
+  const title = getString(found, "title");
+
+  const nodes = Object.values(mapping).filter(isObject);
+  const root = nodes.find((n) => n.parent == null) ?? nodes[0];
+  const rootId = root ? getString(root, "id") : Object.keys(mapping)[0];
+
   const messages: ChatMessage[] = [];
   let cursor: string | undefined = rootId;
   const seen = new Set<string>();
   while (cursor && !seen.has(cursor)) {
     seen.add(cursor);
     const node = mapping[cursor];
-    if (!node) break;
-    const msg = node.message;
+    if (!isObject(node)) break;
+
+    const msg = getObject(node, "message");
     if (msg) {
-      const role = msg.author?.role as string | undefined;
-      const parts = msg.content?.parts as unknown[] | undefined;
-      const contentType = msg.content?.content_type as string | undefined;
+      const role = getString(getObject(msg, "author"), "role");
+      const parts = getArray(getObject(msg, "content"), "parts");
+      const contentType = getString(getObject(msg, "content"), "content_type");
       if (
         role &&
         role !== "system" &&
@@ -146,7 +145,7 @@ function findChatGPTConversation(data: unknown): FoundConv | null {
           .join("\n\n")
           .trim();
         if (text) {
-          const model: string | undefined = msg.metadata?.model_slug;
+          const model = getString(getObject(msg, "metadata"), "model_slug");
           messages.push({
             role:
               role === "user"
@@ -160,31 +159,9 @@ function findChatGPTConversation(data: unknown): FoundConv | null {
         }
       }
     }
-    const children = (node.children ?? []) as string[];
-    cursor = children[0];
+    const children = getArray(node, "children");
+    cursor = children && typeof children[0] === "string" ? children[0] : undefined;
   }
   if (!messages.length) return null;
   return { title, messages };
-}
-
-function walk(value: unknown, predicate: (v: unknown) => unknown | null): unknown {
-  const seen = new WeakSet<object>();
-  const stack: unknown[] = [value];
-  while (stack.length) {
-    const v = stack.pop();
-    if (v && typeof v === "object") {
-      if (seen.has(v as object)) continue;
-      seen.add(v as object);
-      const hit = predicate(v);
-      if (hit) return hit;
-      if (Array.isArray(v)) {
-        for (const item of v) stack.push(item);
-      } else {
-        for (const key of Object.keys(v as Record<string, unknown>)) {
-          stack.push((v as Record<string, unknown>)[key]);
-        }
-      }
-    }
-  }
-  return null;
 }

@@ -1,10 +1,10 @@
 import * as cheerio from "cheerio";
 import { fetchPage } from "./http";
 import { htmlToMarkdown } from "./markdown";
+import { getArray, getString, isObject, walk } from "./json";
 import {
   ExtractError,
   type ChatMessage,
-  type Conversation,
   type SourceDescriptor,
 } from "./types";
 
@@ -23,14 +23,16 @@ export const claude: SourceDescriptor = {
     );
   },
   async extract(url) {
-    const html = await fetchPage(url.toString(), { source: SOURCE, isAllowedHost: (u) => claude.matches(u) });
+    const html = await fetchPage(url.toString(), {
+      source: SOURCE,
+      isAllowedHost: (u) => claude.matches(u),
+    });
     const $ = cheerio.load(html);
 
-    // Try Next.js __NEXT_DATA__ first
     const next = $("script#__NEXT_DATA__").first().text();
     if (next) {
       try {
-        const data = JSON.parse(next);
+        const data: unknown = JSON.parse(next);
         const conv = findClaudeConversation(data);
         if (conv) {
           return {
@@ -47,7 +49,6 @@ export const claude: SourceDescriptor = {
       }
     }
 
-    // Try inline JSON shipped in <script> tags (Remix/Next variants)
     const scripts = $("script").toArray();
     for (const s of scripts) {
       const text = $(s).text();
@@ -71,7 +72,6 @@ export const claude: SourceDescriptor = {
       }
     }
 
-    // Fallback to DOM
     const messages: ChatMessage[] = [];
     $("[data-testid='user-message'], [data-testid='message']").each((_, el) => {
       const isUser = $(el).attr("data-testid") === "user-message";
@@ -108,32 +108,24 @@ interface FoundConv {
 
 function findClaudeConversation(data: unknown): FoundConv | null {
   const found = walk(data, (v) => {
-    if (
-      v &&
-      typeof v === "object" &&
-      "chat_messages" in (v as object) &&
-      Array.isArray((v as any).chat_messages)
-    ) {
-      return v;
-    }
-    return null;
+    return getArray(v, "chat_messages") ? v : null;
   });
-  if (!found) return null;
+  if (!isObject(found)) return null;
   return parseClaudeMessages(found);
 }
 
 function tryExtractFromScript(text: string): FoundConv | null {
-  // Find any object literal containing chat_messages
   const matches = text.matchAll(/\{[^{}]*"chat_messages"\s*:\s*\[/g);
   for (const m of matches) {
     const start = m.index ?? 0;
-    // Walk back to find enclosing object start
     const obj = sliceBalancedObject(text, start);
     if (!obj) continue;
     try {
-      const parsed = JSON.parse(obj);
-      const conv = parseClaudeMessages(parsed);
-      if (conv) return conv;
+      const parsed: unknown = JSON.parse(obj);
+      if (isObject(parsed)) {
+        const conv = parseClaudeMessages(parsed);
+        if (conv) return conv;
+      }
     } catch {
       // try next
     }
@@ -142,7 +134,6 @@ function tryExtractFromScript(text: string): FoundConv | null {
 }
 
 function sliceBalancedObject(text: string, atIndex: number): string | null {
-  // Walk backward to opening `{`
   let start = atIndex;
   while (start >= 0 && text[start] !== "{") start--;
   if (start < 0) return null;
@@ -174,68 +165,45 @@ function sliceBalancedObject(text: string, atIndex: number): string | null {
   return null;
 }
 
-function parseClaudeMessages(obj: unknown): FoundConv | null {
-  const o = obj as any;
-  const msgs = o?.chat_messages;
-  if (!Array.isArray(msgs)) return null;
+function parseClaudeMessages(obj: Record<string, unknown>): FoundConv | null {
+  const msgs = getArray(obj, "chat_messages");
+  if (!msgs) return null;
   const messages: ChatMessage[] = [];
-  for (const m of msgs) {
-    const sender: string =
-      m?.sender || (m?.role === "human" ? "human" : m?.role) || "";
+  for (const raw of msgs) {
+    if (!isObject(raw)) continue;
+    const senderField = getString(raw, "sender");
+    const roleField = getString(raw, "role");
+    const sender =
+      senderField || (roleField === "human" ? "human" : roleField) || "";
     const role: ChatMessage["role"] =
-      sender === "human" || sender === "user"
-        ? "user"
-        : sender === "assistant" || sender === "ai"
-          ? "assistant"
-          : "assistant";
+      sender === "human" || sender === "user" ? "user" : "assistant";
+
     let content = "";
-    if (Array.isArray(m?.content)) {
-      content = m.content
-        .map((c: any) => {
+    const contentArr = getArray(raw, "content");
+    if (contentArr) {
+      content = contentArr
+        .map((c) => {
           if (typeof c === "string") return c;
-          if (c?.type === "text" && typeof c.text === "string") return c.text;
-          if (typeof c?.text === "string") return c.text;
+          if (isObject(c)) {
+            const type = getString(c, "type");
+            const text = getString(c, "text");
+            if ((type === "text" || !type) && text) return text;
+          }
           return "";
         })
         .filter(Boolean)
         .join("\n\n");
-    } else if (typeof m?.text === "string") {
-      content = m.text;
-    } else if (typeof m?.content === "string") {
-      content = m.content;
+    } else {
+      content =
+        getString(raw, "text") ||
+        getString(raw, "content") ||
+        "";
     }
     content = content.trim();
     if (!content) continue;
     messages.push({ role, content });
   }
   if (!messages.length) return null;
-  const title: string | undefined =
-    typeof o.name === "string"
-      ? o.name
-      : typeof o.title === "string"
-        ? o.title
-        : undefined;
+  const title = getString(obj, "name") ?? getString(obj, "title");
   return { title, messages };
-}
-
-function walk(value: unknown, predicate: (v: unknown) => unknown | null): unknown {
-  const seen = new WeakSet<object>();
-  const stack: unknown[] = [value];
-  while (stack.length) {
-    const v = stack.pop();
-    if (v && typeof v === "object") {
-      if (seen.has(v as object)) continue;
-      seen.add(v as object);
-      const hit = predicate(v);
-      if (hit) return hit;
-      if (Array.isArray(v)) {
-        for (const item of v) stack.push(item);
-      } else {
-        for (const key of Object.keys(v as Record<string, unknown>)) {
-          stack.push((v as Record<string, unknown>)[key]);
-        }
-      }
-    }
-  }
-  return null;
 }

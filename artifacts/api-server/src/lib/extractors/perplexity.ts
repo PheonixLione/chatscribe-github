@@ -1,10 +1,10 @@
 import * as cheerio from "cheerio";
 import { fetchPage } from "./http";
 import { htmlToMarkdown } from "./markdown";
+import { getArray, getString, walkAll } from "./json";
 import {
   ExtractError,
   type ChatMessage,
-  type Conversation,
   type SourceDescriptor,
 } from "./types";
 
@@ -26,13 +26,16 @@ export const perplexity: SourceDescriptor = {
     );
   },
   async extract(url) {
-    const html = await fetchPage(url.toString(), { source: SOURCE, isAllowedHost: (u) => perplexity.matches(u) });
+    const html = await fetchPage(url.toString(), {
+      source: SOURCE,
+      isAllowedHost: (u) => perplexity.matches(u),
+    });
     const $ = cheerio.load(html);
 
     const next = $("script#__NEXT_DATA__").first().text();
     if (next) {
       try {
-        const data = JSON.parse(next);
+        const data: unknown = JSON.parse(next);
         const conv = findPerplexityConversation(data);
         if (conv) {
           return {
@@ -49,7 +52,6 @@ export const perplexity: SourceDescriptor = {
       }
     }
 
-    // DOM fallback: pull query and answer text.
     const messages: ChatMessage[] = [];
     const queryEl = $("h1, [data-testid='query']").first();
     const answerEl = $("[data-testid='answer'], .prose, article").first();
@@ -85,58 +87,46 @@ interface FoundConv {
 }
 
 function findPerplexityConversation(data: unknown): FoundConv | null {
-  // Look for an object with `query_str` + `text` fields, often nested as an array of "blocks".
   const messages: ChatMessage[] = [];
   let title: string | undefined;
-  walk(data, (v) => {
-    if (v && typeof v === "object") {
-      const o = v as any;
-      if (typeof o.query_str === "string" && o.query_str.trim()) {
-        messages.push({ role: "user", content: o.query_str.trim() });
-        if (!title && typeof o.title === "string") title = o.title;
+  walkAll(data, (o) => {
+    const queryStr = getString(o, "query_str");
+    if (queryStr && queryStr.trim()) {
+      messages.push({ role: "user", content: queryStr.trim() });
+      if (!title) title = getString(o, "title");
+    }
+    const answer = getString(o, "answer");
+    if (answer && answer.trim()) {
+      try {
+        const parsed: unknown = JSON.parse(answer);
+        const parsedAnswer = getString(parsed, "answer");
+        const chunks = getArray(parsed, "chunks");
+        const txt =
+          parsedAnswer ||
+          (chunks
+            ? chunks
+                .map((c) => getString(c, "text") ?? "")
+                .filter(Boolean)
+                .join("\n\n")
+            : "");
+        if (txt.trim()) {
+          messages.push({ role: "assistant", content: txt.trim() });
+          return;
+        }
+      } catch {
+        // fall through to raw answer
       }
-      if (typeof o.answer === "string" && o.answer.trim()) {
-        // Perplexity sometimes JSON-encodes the answer object inside a string field.
-        try {
-          const parsed = JSON.parse(o.answer);
-          const txt =
-            (typeof parsed?.answer === "string" && parsed.answer) ||
-            (Array.isArray(parsed?.chunks)
-              ? parsed.chunks.map((c: any) => c?.text || "").join("\n\n")
-              : "");
-          if (txt.trim()) messages.push({ role: "assistant", content: txt.trim() });
-        } catch {
-          messages.push({ role: "assistant", content: o.answer.trim() });
-        }
-      } else if (typeof o.text === "string" && o.text.length > 80 && !o.query_str) {
-        // Some payloads nest the rendered answer text under .text
-        if (!messages.some((m) => m.content === o.text.trim())) {
-          messages.push({ role: "assistant", content: o.text.trim() });
-        }
+      messages.push({ role: "assistant", content: answer.trim() });
+      return;
+    }
+    const text = getString(o, "text");
+    if (text && text.length > 80 && !queryStr) {
+      const trimmed = text.trim();
+      if (!messages.some((m) => m.content === trimmed)) {
+        messages.push({ role: "assistant", content: trimmed });
       }
     }
-    return null;
   });
   if (!messages.length) return null;
   return { title, messages };
-}
-
-function walk(value: unknown, visitor: (v: unknown) => unknown): void {
-  const seen = new WeakSet<object>();
-  const stack: unknown[] = [value];
-  while (stack.length) {
-    const v = stack.pop();
-    if (v && typeof v === "object") {
-      if (seen.has(v as object)) continue;
-      seen.add(v as object);
-      visitor(v);
-      if (Array.isArray(v)) {
-        for (const item of v) stack.push(item);
-      } else {
-        for (const key of Object.keys(v as Record<string, unknown>)) {
-          stack.push((v as Record<string, unknown>)[key]);
-        }
-      }
-    }
-  }
 }

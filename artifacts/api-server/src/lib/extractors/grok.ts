@@ -1,10 +1,10 @@
 import * as cheerio from "cheerio";
 import { fetchPage } from "./http";
 import { htmlToMarkdown } from "./markdown";
+import { getArray, getString, isObject, walk } from "./json";
 import {
   ExtractError,
   type ChatMessage,
-  type Conversation,
   type SourceDescriptor,
 } from "./types";
 
@@ -27,14 +27,16 @@ export const grok: SourceDescriptor = {
     return false;
   },
   async extract(url) {
-    const html = await fetchPage(url.toString(), { source: SOURCE, isAllowedHost: (u) => grok.matches(u) });
+    const html = await fetchPage(url.toString(), {
+      source: SOURCE,
+      isAllowedHost: (u) => grok.matches(u),
+    });
     const $ = cheerio.load(html);
 
-    // Try Next.js data
     const next = $("script#__NEXT_DATA__").first().text();
     if (next) {
       try {
-        const data = JSON.parse(next);
+        const data: unknown = JSON.parse(next);
         const conv = findGrokConversation(data);
         if (conv) {
           return {
@@ -51,7 +53,6 @@ export const grok: SourceDescriptor = {
       }
     }
 
-    // Try generic inline scripts containing message arrays
     const scripts = $("script").toArray();
     for (const s of scripts) {
       const text = $(s).text();
@@ -75,7 +76,6 @@ export const grok: SourceDescriptor = {
       }
     }
 
-    // DOM fallback
     const messages: ChatMessage[] = [];
     $("[data-message-author-role], [data-role]").each((_, el) => {
       const role =
@@ -112,63 +112,58 @@ interface FoundConv {
   messages: ChatMessage[];
 }
 
+function firstSenderOrRole(arr: unknown[]): boolean {
+  const first = arr[0];
+  if (!isObject(first)) return false;
+  return Boolean(getString(first, "sender") || getString(first, "role"));
+}
+
 function findGrokConversation(data: unknown): FoundConv | null {
   const found = walk(data, (v) => {
-    if (
-      v &&
-      typeof v === "object" &&
-      "responses" in (v as object) &&
-      Array.isArray((v as any).responses)
-    )
-      return v;
-    if (
-      v &&
-      typeof v === "object" &&
-      "messages" in (v as object) &&
-      Array.isArray((v as any).messages) &&
-      (v as any).messages.length &&
-      ((v as any).messages[0]?.sender || (v as any).messages[0]?.role)
-    )
-      return v;
+    if (getArray(v, "responses")) return v;
+    const messages = getArray(v, "messages");
+    if (messages && messages.length && firstSenderOrRole(messages)) return v;
     return null;
   });
-  if (!found) return null;
-  const obj = found as any;
-  const arr: any[] = obj.messages || obj.responses;
+  if (!isObject(found)) return null;
+  const arr = getArray(found, "messages") ?? getArray(found, "responses") ?? [];
   const messages: ChatMessage[] = [];
   for (const m of arr) {
-    const sender: string = (m.sender || m.role || "").toString().toLowerCase();
+    if (!isObject(m)) continue;
+    const sender = (getString(m, "sender") || getString(m, "role") || "").toLowerCase();
     const role: ChatMessage["role"] =
       sender === "human" || sender === "user"
         ? "user"
-        : sender === "assistant" || sender === "model" || sender === "ai" || sender === "grok"
-          ? "assistant"
-          : "assistant";
-    const content =
-      (typeof m.message === "string" && m.message) ||
-      (typeof m.text === "string" && m.text) ||
-      (typeof m.content === "string" && m.content) ||
-      (Array.isArray(m.content)
-        ? m.content
-            .map((c: any) =>
-              typeof c === "string" ? c : typeof c?.text === "string" ? c.text : "",
-            )
-            .filter(Boolean)
-            .join("\n\n")
-        : "");
-    const trimmed = (content || "").trim();
+        : "assistant";
+
+    let content =
+      getString(m, "message") ||
+      getString(m, "text") ||
+      getString(m, "content") ||
+      "";
+    if (!content) {
+      const contentArr = getArray(m, "content");
+      if (contentArr) {
+        content = contentArr
+          .map((c) => {
+            if (typeof c === "string") return c;
+            if (isObject(c)) return getString(c, "text") || "";
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n\n");
+      }
+    }
+    const trimmed = content.trim();
     if (!trimmed) continue;
     messages.push({ role, content: trimmed });
   }
   if (!messages.length) return null;
-  const title: string | undefined =
-    typeof obj.title === "string" ? obj.title : undefined;
+  const title = getString(found, "title");
   return { title, messages };
 }
 
 function scrapeArrayLike(text: string): FoundConv | null {
-  // Find the first `[ ... ]` containing message-shaped objects.
-  // Naive: scan for sender/role patterns and slice surrounding object.
   const candidates: ChatMessage[] = [];
   const re =
     /"(?:sender|role)"\s*:\s*"([a-z_]+)"[^{}]*?"(?:message|text|content)"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
@@ -179,7 +174,8 @@ function scrapeArrayLike(text: string): FoundConv | null {
       sender === "human" || sender === "user" ? "user" : "assistant";
     let content = "";
     try {
-      content = JSON.parse(`"${raw}"`);
+      const parsed: unknown = JSON.parse(`"${raw}"`);
+      if (typeof parsed === "string") content = parsed;
     } catch {
       content = raw;
     }
@@ -187,26 +183,4 @@ function scrapeArrayLike(text: string): FoundConv | null {
   }
   if (!candidates.length) return null;
   return { messages: candidates };
-}
-
-function walk(value: unknown, predicate: (v: unknown) => unknown | null): unknown {
-  const seen = new WeakSet<object>();
-  const stack: unknown[] = [value];
-  while (stack.length) {
-    const v = stack.pop();
-    if (v && typeof v === "object") {
-      if (seen.has(v as object)) continue;
-      seen.add(v as object);
-      const hit = predicate(v);
-      if (hit) return hit;
-      if (Array.isArray(v)) {
-        for (const item of v) stack.push(item);
-      } else {
-        for (const key of Object.keys(v as Record<string, unknown>)) {
-          stack.push((v as Record<string, unknown>)[key]);
-        }
-      }
-    }
-  }
-  return null;
 }
