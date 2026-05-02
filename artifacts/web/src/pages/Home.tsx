@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useExtractConversation, useListSupportedSources, useHealthCheck, Conversation, ExtractError } from "@workspace/api-client-react";
+import { useExtractConversation, useListSupportedSources, useHealthCheck, Conversation, ExtractError, ApiError } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Copy, Download, FileText, File, ExternalLink,
@@ -45,12 +45,19 @@ export function Home() {
         onSuccess: (data) => {
           setConversation(data);
         },
-        onError: (err: any) => {
-          // Error handling done in render
-        }
       }
     );
   };
+
+  function getErrorMessage(err: unknown): string {
+    if (err instanceof ApiError) {
+      const data = err.data as ExtractError | null;
+      if (data?.message) return data.message;
+      return err.message;
+    }
+    if (err instanceof Error) return err.message;
+    return "An unexpected error occurred.";
+  }
 
   const reset = () => {
     setConversation(null);
@@ -65,7 +72,7 @@ export function Home() {
       await copyToClipboard(md);
       toast({ title: "Copied to clipboard", description: "Markdown text copied successfully." });
     } catch (err) {
-      toast({ title: "Copy failed", description: (err as Error)?.message || "Could not access the clipboard.", variant: "destructive" });
+      toast({ title: "Copy failed", description: getErrorMessage(err), variant: "destructive" });
     }
   };
 
@@ -90,7 +97,7 @@ export function Home() {
       await downloadPdf("conversation-content", `chat-extract-${Date.now()}.pdf`);
       toast({ title: "PDF Downloaded" });
     } catch (err) {
-      toast({ title: "PDF failed", description: (err as Error)?.message || "Could not generate the PDF.", variant: "destructive" });
+      toast({ title: "PDF failed", description: getErrorMessage(err), variant: "destructive" });
     }
   };
 
@@ -151,7 +158,7 @@ export function Home() {
                   <div>
                     <h3 className="font-semibold text-sm">Extraction failed</h3>
                     <p className="text-sm opacity-90 mt-1">
-                      {((extractMutation.error as any)?.data as ExtractError)?.message || (extractMutation.error as any)?.message || "An unexpected error occurred."}
+                      {getErrorMessage(extractMutation.error)}
                     </p>
                   </div>
                 </motion.div>
