@@ -3,6 +3,7 @@ import type { Element } from "domhandler";
 import { fetchPage } from "./http";
 import { renderPage } from "./headless";
 import { htmlToMarkdown } from "./markdown";
+import { isObject, walkAll } from "./json";
 import {
   ExtractError,
   type ChatMessage,
@@ -105,6 +106,13 @@ function isAwsWafChallenge(html: string): boolean {
  * preceded each assistant turn.
  */
 function parseHtml(html: string, originalUrl: string): Conversation | null {
+  // Some DeepSeek share responses (and our fixtures / cached snapshots)
+  // inline the entire conversation as a `window.__INITIAL_STATE__` blob
+  // before React even mounts. When present this is by far the most
+  // reliable source — we don't need any DOM heuristics.
+  const fromState = parseInitialState(html, originalUrl);
+  if (fromState) return fromState;
+
   const $ = cheerio.load(html);
 
   const messages: ChatMessage[] = [];
@@ -264,4 +272,132 @@ function extractAssistantText(
   }
   const answer = htmlToMarkdown($(md).html() || "").trim();
   return (thinking + answer).trim();
+}
+
+/**
+ * Pull the JSON object out of a `window.__INITIAL_STATE__ = {...};` script
+ * tag and try to find a `messages` array of `{role, content}` objects
+ * (anywhere in the tree — DeepSeek nests it under `share` or `data` in
+ * different deployments). Returns a Conversation if a usable transcript
+ * is found, otherwise null.
+ */
+function parseInitialState(
+  html: string,
+  originalUrl: string,
+): Conversation | null {
+  const re = /window\s*\.\s*__INITIAL_STATE__\s*=\s*/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(html))) {
+    const start = match.index + match[0].length;
+    // Find the matching closing brace by counting nesting, respecting
+    // strings so braces inside JSON string values don't trip us up.
+    if (html[start] !== "{") continue;
+    let depth = 0;
+    let inStr = false;
+    let escape = false;
+    let end = -1;
+    for (let i = start; i < html.length; i++) {
+      const ch = html[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (inStr) {
+        if (ch === "\\") {
+          escape = true;
+        } else if (ch === '"') {
+          inStr = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inStr = true;
+      } else if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    if (end === -1) continue;
+    const json = html.slice(start, end);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      continue;
+    }
+    const conv = conversationFromState(parsed, originalUrl);
+    if (conv) return conv;
+  }
+  return null;
+}
+
+function conversationFromState(
+  state: unknown,
+  originalUrl: string,
+): Conversation | null {
+  // Walk every object in the state tree and inspect each of its array
+  // fields, looking for the longest array whose entries match
+  // `{role: "user"|"assistant"|"system", content: string}`. This handles
+  // both `state.share.messages` (current shape) and any future renames.
+  let bestMessages: ChatMessage[] | null = null;
+  walkAll(state, (node) => {
+    for (const key of Object.keys(node)) {
+      const arr = node[key];
+      if (!Array.isArray(arr) || arr.length === 0) continue;
+      const candidate: ChatMessage[] = [];
+      let valid = true;
+      for (const item of arr) {
+        if (!isObject(item)) {
+          valid = false;
+          break;
+        }
+        const role = item.role;
+        const content = item.content;
+        if (
+          (role !== "user" && role !== "assistant" && role !== "system") ||
+          typeof content !== "string"
+        ) {
+          valid = false;
+          break;
+        }
+        candidate.push({
+          role: role as "user" | "assistant" | "system",
+          content,
+        });
+      }
+      if (
+        valid &&
+        candidate.length &&
+        (!bestMessages || candidate.length > bestMessages.length)
+      ) {
+        bestMessages = candidate;
+      }
+    }
+  });
+
+  if (!bestMessages) return null;
+  const messages: ChatMessage[] = bestMessages;
+  if (messages.length === 0) return null;
+
+  // Try to find a title in the same state tree.
+  let title: string | undefined;
+  walkAll(state, (node) => {
+    if (title) return;
+    const t = node.title ?? node.shareTitle ?? node.name;
+    if (typeof t === "string" && t.trim()) title = t.trim();
+  });
+
+  return {
+    source: SOURCE,
+    sourceLabel: "DeepSeek",
+    title: title || undefined,
+    url: originalUrl,
+    messages,
+    extractedAt: new Date().toISOString(),
+  };
 }
