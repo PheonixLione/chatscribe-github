@@ -6,6 +6,11 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Replit serves the API behind an mTLS proxy, so the real client IP arrives
+// in X-Forwarded-For. Trust the first proxy hop so req.ip resolves correctly
+// for downstream rate limiting.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

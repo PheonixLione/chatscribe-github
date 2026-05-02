@@ -3,6 +3,12 @@ import { ExtractError, type ChatSource } from "./types";
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+/**
+ * Hard cap on the size of a remote response body. Pages larger than this
+ * are rejected before they can pin server memory.
+ */
+export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+
 export interface FetchOptions {
   source: ChatSource;
   headers?: Record<string, string>;
@@ -16,6 +22,8 @@ export interface FetchOptions {
   isAllowedHost: (url: URL) => boolean;
   /** Maximum number of redirects to follow. Defaults to 5. */
   maxRedirects?: number;
+  /** Maximum bytes to read from a single response. Defaults to MAX_RESPONSE_BYTES. */
+  maxBytes?: number;
 }
 
 export async function fetchPage(
@@ -23,6 +31,7 @@ export async function fetchPage(
   opts: FetchOptions,
 ): Promise<string> {
   const maxRedirects = opts.maxRedirects ?? 5;
+  const maxBytes = opts.maxBytes ?? MAX_RESPONSE_BYTES;
   let current = url;
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
@@ -90,7 +99,7 @@ export async function fetchPage(
       continue;
     }
 
-    return await handleResponse(res, opts.source);
+    return await handleResponse(res, opts.source, maxBytes);
   }
 
   throw new ExtractError(
@@ -100,7 +109,11 @@ export async function fetchPage(
   );
 }
 
-async function handleResponse(res: Response, source: ChatSource): Promise<string> {
+async function handleResponse(
+  res: Response,
+  source: ChatSource,
+  maxBytes: number,
+): Promise<string> {
 
   if (res.status === 404 || res.status === 410) {
     throw new ExtractError(
@@ -123,9 +136,85 @@ async function handleResponse(res: Response, source: ChatSource): Promise<string
       { source },
     );
   }
-  const body = await res.text();
+
+  // Reject up front when the server advertises a body larger than our cap.
+  const contentLength = res.headers.get("content-length");
+  if (contentLength) {
+    const declared = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      // Drain quietly so we don't leave the socket hanging.
+      try {
+        await res.body?.cancel();
+      } catch {
+        // ignore
+      }
+      throw new ExtractError(
+        "fetch_failed",
+        `That page is too large to process (over ${formatMb(maxBytes)}).`,
+        { source, status: 413 },
+      );
+    }
+  }
+
+  const body = await readBodyWithCap(res, maxBytes, source);
   detectPrivateOrMissing(body, source);
   return body;
+}
+
+async function readBodyWithCap(
+  res: Response,
+  maxBytes: number,
+  source: ChatSource,
+): Promise<string> {
+  // Stream the body so we can abort once we cross the cap, instead of letting
+  // the runtime buffer an arbitrarily large response into memory.
+  if (!res.body) {
+    return "";
+  }
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // ignore
+        }
+        throw new ExtractError(
+          "fetch_failed",
+          `That page is too large to process (over ${formatMb(maxBytes)}).`,
+          { source, status: 413 },
+        );
+      }
+      chunks.push(value);
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+  }
+
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(merged);
+}
+
+function formatMb(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
 
 const PRIVATE_MARKERS: RegExp[] = [
