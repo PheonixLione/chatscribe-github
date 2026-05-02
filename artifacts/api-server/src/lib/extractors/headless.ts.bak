@@ -226,16 +226,7 @@ export async function renderPage(
       await new Promise((r) => setTimeout(r, opts.settleMs));
     }
 
-    // Use evaluate() rather than page.content() to extract HTML. page.content()
-    // wraps a CDP `getOuterHTML` round-trip with a separate `Page.navigate`
-    // probe and reliably hangs on very large hydrated pages (4MB+ Gemini long
-    // conversations). Reading documentElement.outerHTML directly is a single
-    // serialized callFunctionOn and returns even when the page is enormous.
-    // Pass as a string-bodied function so DOM globals (`document`) don't
-    // need to be in the api-server tsconfig `lib`.
-    const html = (await page.evaluate(
-      "document.documentElement.outerHTML",
-    )) as string;
+    const html = await page.content();
     const finalUrl = page.url();
     return { html, finalUrl };
   } finally {

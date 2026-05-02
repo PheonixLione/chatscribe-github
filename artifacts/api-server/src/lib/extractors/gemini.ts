@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import type { Element } from "domhandler";
 import { fetchPage } from "./http";
 import { renderPage } from "./headless";
 import { htmlToMarkdown } from "./markdown";
@@ -39,13 +38,17 @@ export const gemini: SourceDescriptor = {
     );
   },
   async extract(url) {
-    // 1) Fast path: fetch the SSR shell and parse the AF_initDataCallback
-    //    blocks Google bakes into the HTML. This avoids paying for a full
-    //    headless render on the common case.
-    let html: string | null = null;
+    // 1) Fast path: try the legacy SSR shell that used to embed
+    //    AF_initDataCallback blocks. As of 2026 Q1 Google no longer
+    //    inlines conversation data in the static HTML for share routes,
+    //    but we keep this in case they bring it back or serve a cached
+    //    older snapshot.
     let staticErr: ExtractError | null = null;
     try {
-      html = await fetchPage(url.toString(), { source: SOURCE, isAllowedHost });
+      const html = await fetchPage(url.toString(), {
+        source: SOURCE,
+        isAllowedHost,
+      });
       const fromStatic = parseStaticHtml(html, url.toString());
       if (fromStatic) return fromStatic;
     } catch (err) {
@@ -53,19 +56,28 @@ export const gemini: SourceDescriptor = {
       staticErr = err instanceof ExtractError ? err : null;
     }
 
-    // 2) Fallback: render with a headless browser, wait for Gemini's
-    //    custom elements, then walk the DOM.
+    // 2) Headless render. Gemini share pages now hydrate the conversation
+    //    via lazy XHR (`/_/BardChatUi/data/batchexecute?rpcids=ujx1Bf`).
+    //    For long conversations this single XHR can be 2MB+ and takes
+    //    20-60s on a slow link, so we use a generous budget and a
+    //    "count-stable" predicate that waits until no new turns are
+    //    appearing (the renderer streams in turns incrementally).
     try {
       const { html: rendered } = await renderPage(url.toString(), {
         source: SOURCE,
-        timeoutMs: 45_000,
-        settleMs: 1200,
+        // The conversation arrives via a single batchexecute XHR. Cold or
+        // throttled clients (we have observed Google deliberately delaying
+        // the response when many shares are fetched in a short window) can
+        // take 80-100s before the XHR resolves. Once it does, the entire
+        // conversation hydrates within ~1-2s. Give a generous 150s budget
+        // so a single throttled request still succeeds rather than aborting
+        // mid-flight.
+        timeoutMs: 150_000,
+        settleMs: 2000,
         waitFor: {
           fn: `
-            // Some shares ("This app was created by another person") show a
-            // disclaimer dialog blocking the conversation. Click through it
-            // automatically. The polling re-runs us every 500ms, so the
-            // very next tick will see the real content.
+            // Auto-dismiss the "this app was created by another person"
+            // disclaimer that some shares wrap the conversation with.
             var dialog = document.querySelector(
               "immersive-share-disclaimer-dialog, mat-dialog-container"
             );
@@ -85,29 +97,74 @@ export const gemini: SourceDescriptor = {
                 }
               }
             }
-            // Stop early if the page has resolved into a non-conversation
-            // state we cannot extract (dead link, Canvas/Gem app share).
-            // Returning true short-circuits the wait; the caller then runs
-            // its own classification on the rendered HTML.
+
+            // Short-circuit non-conversation outcomes so the caller can
+            // produce a meaningful error without waiting for the full
+            // render budget.
             var bodyText = (document.body && document.body.innerText) || "";
             if (/Link doesn'?t exist/i.test(bodyText)) return true;
-            if (document.querySelector("immersive-share-landing-page, web-preview")) {
+            if (
+              document.querySelector(
+                "immersive-share-landing-page, web-preview"
+              )
+            ) {
               return true;
             }
-            var sel = "user-query, [data-test-id='user-query'], .user-query, " +
-              "model-response, [data-test-id='model-response'], .model-response, " +
-              "message-content";
-            var els = document.querySelectorAll(sel);
-            for (var i = 0; i < els.length; i++) {
-              if ((els[i].textContent || "").trim().length > 5) return true;
+
+            // Modern Gemini share DOM: <share-viewer> contains the chat
+            // history with one <share-turn-viewer> per turn. Wait until
+            // the turn count is stable across 3 polls (~1.5s) AND the
+            // total transcript text length has not grown by more than a
+            // tiny delta in the last poll (so the tail isn't still
+            // actively streaming). Combining both signals catches the
+            // common case where all turn containers appear in one batch
+            // but their content hydrates progressively.
+            var turns = document.querySelectorAll("share-turn-viewer");
+            // Legacy / pre-modern selectors as a safety net.
+            var legacy = document.querySelectorAll(
+              "user-query, [data-test-id='user-query'], .user-query, " +
+              "model-response, [data-test-id='model-response'], .model-response"
+            );
+            var count = turns.length || legacy.length;
+            if (count === 0) {
+              window.__gemTurnCount = 0;
+              window.__gemTextLen = 0;
+              window.__gemTurnStable = 0;
+              return false;
             }
+            var probe = turns.length ? turns : legacy;
+            var textLen = 0;
+            for (var i = 0; i < probe.length; i++) {
+              textLen += (probe[i].textContent || "").length;
+            }
+            // Need at least one substantial turn before we even
+            // consider stability (avoids stabilizing on empty shells).
+            if (textLen < 40) return false;
+
+            var prevCount = window.__gemTurnCount || 0;
+            var prevTextLen = window.__gemTextLen || 0;
+            var countStable = count === prevCount;
+            // "Tail not streaming" = text grew by less than 0.5% (or 200
+            // chars, whichever is larger) in the last poll. This tolerates
+            // late-arriving DOM hydration without requiring an exact match.
+            var growth = textLen - prevTextLen;
+            var tolerance = Math.max(200, Math.floor(prevTextLen * 0.005));
+            var textQuiet = growth >= 0 && growth <= tolerance;
+
+            window.__gemTurnCount = count;
+            window.__gemTextLen = textLen;
+
+            if (countStable && textQuiet) {
+              window.__gemTurnStable = (window.__gemTurnStable || 0) + 1;
+              if (window.__gemTurnStable >= 3) return true;
+              return false;
+            }
+            window.__gemTurnStable = 0;
             return false;
           `,
         },
       });
 
-      // Classify non-conversation outcomes *before* trying to parse turns,
-      // so the caller gets an actionable error instead of "parse_failed".
       const classified = classifyRendered(rendered);
       if (classified) throw classified;
 
@@ -115,7 +172,7 @@ export const gemini: SourceDescriptor = {
       if (conv) return conv;
     } catch (err) {
       if (err instanceof ExtractError) throw err;
-      // fall through to final error
+      // fall through
     }
 
     if (staticErr) throw staticErr;
@@ -130,11 +187,9 @@ export const gemini: SourceDescriptor = {
 /**
  * Inspect a rendered Gemini share page that did not yield message turns
  * and translate well-known non-conversation outcomes into a meaningful
- * ExtractError. Returns null when the page looks like it should contain a
- * conversation we just failed to parse.
+ * ExtractError.
  */
 function classifyRendered(html: string): ExtractError | null {
-  // "Link doesn't exist / The link might have been deleted..." dialog.
   if (/Link doesn'?t exist/i.test(html)) {
     return new ExtractError(
       "not_public",
@@ -142,8 +197,6 @@ function classifyRendered(html: string): ExtractError | null {
       { source: SOURCE },
     );
   }
-  // Canvas / Gem (interactive app) shares use a different surface and
-  // don't contain a regular conversation. Detect their custom elements.
   if (
     /<immersive-share-landing-page\b/i.test(html) ||
     /<web-preview\b/i.test(html)
@@ -157,12 +210,12 @@ function classifyRendered(html: string): ExtractError | null {
   return null;
 }
 
-// ---------- Static HTML / AF_initDataCallback parsing ----------
+// ---------- Static HTML / AF_initDataCallback parsing (legacy) ----------
 
 function parseStaticHtml(html: string, originalUrl: string): Conversation | null {
   const blocks = extractAfInitDataBlocks(html);
   for (const data of blocks) {
-    const conv = findGeminiConversation(data);
+    const conv = findGeminiConversationFromAf(data);
     if (conv && conv.messages.length) {
       return {
         source: SOURCE,
@@ -174,39 +227,119 @@ function parseStaticHtml(html: string, originalUrl: string): Conversation | null
       };
     }
   }
-  return null;
+  // Some shells (older A/B buckets, archived snapshots, fixtures) emit the
+  // conversation directly in the SSR HTML using the same DOM the headless
+  // parser handles. Try the DOM parser before paying the headless cost —
+  // BUT only if this does not look like the modern Gemini hydration shell
+  // (which contains <share-viewer> but is empty until the lazy XHR
+  // resolves). Returning early on a partially-hydrated shell would yield
+  // a truncated transcript.
+  const looksLikeHydrationShell =
+    /<share-viewer\b/i.test(html) && !/<share-turn-viewer\b/i.test(html);
+  if (looksLikeHydrationShell) return null;
+  return parseRenderedHtml(html, originalUrl);
 }
 
 function parseRenderedHtml(html: string, originalUrl: string): Conversation | null {
   const $ = cheerio.load(html);
 
   const messages: ChatMessage[] = [];
-  const USER_SEL = "user-query, [data-test-id='user-query'], .user-query";
-  const MODEL_SEL =
-    "model-response, [data-test-id='model-response'], .model-response, message-content";
 
-  $(`${USER_SEL}, ${MODEL_SEL}`).each((_, el) => {
-    const tagName = (el as Element).name?.toLowerCase() ?? "";
-    const cls = $(el).attr("class") || "";
-    const isUser =
-      tagName === "user-query" ||
-      $(el).is(USER_SEL) ||
-      /user|query|prompt/i.test(cls);
+  // Modern shape (2026+): walk every <share-turn-viewer> in document order.
+  // Each turn may contain a <user-query> (the question) and a
+  // <response-container>/<message-content> (the answer). Some turns are
+  // assistant-only (regenerations / tool turns), some are user-only
+  // (in-flight). We emit whatever is present, preserving DOM order so the
+  // conversation reads correctly.
+  const turns = $("share-turn-viewer").toArray();
+  if (turns.length) {
+    for (const turn of turns) {
+      const $turn = $(turn);
 
-    // Prefer the inner markdown body if present so we don't pick up the
-    // surrounding chrome (avatars, action buttons, etc.).
-    const inner =
-      $(el).find(".markdown, .response-content, .query-text").first().html() ??
-      $(el).html() ??
-      "";
-    const content = htmlToMarkdown(inner);
-    if (!content.trim()) return;
-    messages.push({ role: isUser ? "user" : "assistant", content });
-  });
+      const $userQuery = $turn.find("user-query").first();
+      if ($userQuery.length) {
+        // Prefer the .query-text-line paragraphs over the full user-query
+        // textContent so we drop the screen-reader "You said" prefix and
+        // the inline action buttons.
+        const lines = $userQuery
+          .find(".query-text-line, .query-text")
+          .map((_, el) => $(el).text().trim())
+          .get()
+          .filter(Boolean);
+        let userText = lines.join("\n\n").trim();
+        if (!userText) {
+          userText = htmlToMarkdown($userQuery.html() || "")
+            .replace(/^You said\s*/i, "")
+            .trim();
+        }
+        if (userText) {
+          messages.push({ role: "user", content: userText });
+        }
+      }
+
+      // The assistant turn lives inside .response-container > message-content.
+      // A single turn can contain multiple message-content siblings (e.g.
+      // tool output followed by a final answer, or regenerated responses),
+      // so we collect ALL message-content nodes in DOM order. We must NOT
+      // also collect descendant .markdown nodes from the same turn — they
+      // typically live INSIDE message-content and would be captured twice
+      // (once as part of message-content's html, once on their own). Only
+      // fall back to .markdown if no message-content exists (older shells),
+      // and to the whole response-container if neither is present.
+      const responseChunks: string[] = [];
+      let $blocks = $turn.find("response-container message-content");
+      if (!$blocks.length) {
+        $blocks = $turn.find("response-container .markdown");
+      }
+      if ($blocks.length) {
+        $blocks.each((_, el) => {
+          const chunk = htmlToMarkdown($(el).html() || "").trim();
+          if (chunk) responseChunks.push(chunk);
+        });
+      } else {
+        const fallback = htmlToMarkdown(
+          $turn.find("response-container").first().html() || "",
+        ).trim();
+        if (fallback) responseChunks.push(fallback);
+      }
+      const responseText = responseChunks.join("\n\n").trim();
+      if (responseText) {
+        messages.push({ role: "assistant", content: responseText });
+      }
+    }
+  }
+
+  // Legacy fallback: pre-2026 DOM that exposed user-query / model-response
+  // as top-level siblings. Kept so older fixtures and any A/B test bucket
+  // still working with the old shell continue to extract.
+  if (!messages.length) {
+    const USER_SEL = "user-query, [data-test-id='user-query'], .user-query";
+    const MODEL_SEL =
+      "model-response, [data-test-id='model-response'], .model-response, message-content";
+    $(`${USER_SEL}, ${MODEL_SEL}`).each((_, el) => {
+      const tagName = ((el as { name?: string }).name ?? "").toLowerCase();
+      const cls = $(el).attr("class") || "";
+      const isUser =
+        tagName === "user-query" ||
+        $(el).is(USER_SEL) ||
+        /user|query|prompt/i.test(cls);
+      const inner =
+        $(el).find(".markdown, .response-content, .query-text").first().html() ??
+        $(el).html() ??
+        "";
+      const content = htmlToMarkdown(inner);
+      if (!content.trim()) return;
+      messages.push({ role: isUser ? "user" : "assistant", content });
+    });
+  }
 
   if (!messages.length) return null;
 
+  // Title: prefer the in-page H1 (".share-title-section h1") since
+  // <title> is the generic "Gemini - direct access to Google AI" for
+  // share pages.
   const title =
+    $(".share-title-section h1, share-viewer h1").first().text().trim() ||
     $('meta[property="og:title"]').attr("content")?.trim() ||
     $("title").first().text().trim() ||
     undefined;
@@ -223,17 +356,17 @@ function parseRenderedHtml(html: string, originalUrl: string): Conversation | nu
 
 /**
  * Pull the `data` field out of every `AF_initDataCallback({key:'ds:N', ...})`
- * block in the SSR shell. These are the proto-shaped JSON arrays Google
- * uses to hydrate its WIZ-rendered apps.
+ * block in the SSR shell. These were the proto-shaped JSON arrays Google
+ * used to hydrate WIZ-rendered apps. As of 2026 Q1 Gemini share pages no
+ * longer emit these blocks (only the function symbol appears), but other
+ * Google surfaces still use the format so we keep the legacy parser.
  */
 function extractAfInitDataBlocks(html: string): unknown[] {
   const out: unknown[] = [];
-  // Match the function call regardless of whitespace; we then slice the
-  // balanced object literal that follows.
   const re = /AF_initDataCallback\s*\(\s*\{/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
-    const objStart = m.index + m[0].length - 1; // position of '{'
+    const objStart = m.index + m[0].length - 1;
     const obj = sliceBalancedObject(html, objStart);
     if (!obj) continue;
     const dataField = extractDataField(obj);
@@ -248,14 +381,7 @@ function extractAfInitDataBlocks(html: string): unknown[] {
   return out;
 }
 
-/**
- * AF_initDataCallback object literals are JS object syntax, not strict JSON
- * (unquoted keys, single quotes, etc.). We don't need to fully parse them —
- * we only want the `data:` value, which is itself valid JSON because Google
- * serializes it from a proto. Find `data:` then balance-slice the value.
- */
 function extractDataField(obj: string): string | null {
-  // Look for `data` as an unquoted key followed by a colon.
   const re = /(?:^|[,{])\s*['"]?data['"]?\s*:\s*/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(obj))) {
@@ -306,33 +432,14 @@ function sliceBalancedObject(text: string, atIndex: number): string | null {
   return sliceBalancedValue(text, atIndex);
 }
 
-// ---------- Heuristic conversation walker ----------
-
 interface FoundConv {
   title?: string;
   messages: ChatMessage[];
 }
 
-/**
- * Walk a parsed AF_initDataCallback `data` payload looking for the
- * conversation turns. Gemini's shape varies between deployments and the
- * arrays are anonymous (proto-derived), so we identify message text via
- * structural heuristics rather than fixed indices:
- *
- *   - A message body shows up as a string ≥ a few characters long that
- *     either contains HTML/markdown or is the only string in its parent
- *     array.
- *   - Turns alternate user → model. The user-query text is typically the
- *     shorter of an adjacent pair, the model response the longer.
- *
- * We collect all candidate strings in document order and then pair them
- * up; this is resilient to indexing churn while still preserving order.
- */
-function findGeminiConversation(data: unknown): FoundConv | null {
+function findGeminiConversationFromAf(data: unknown): FoundConv | null {
   const candidates = collectCandidateStrings(data);
   if (!candidates.length) return null;
-
-  // Drop obvious non-message strings (very short, all-uppercase IDs, urls).
   const filtered = candidates.filter((s) => {
     const t = s.trim();
     if (t.length < 2) return false;
@@ -342,8 +449,6 @@ function findGeminiConversation(data: unknown): FoundConv | null {
   });
   if (!filtered.length) return null;
 
-  // Heuristic: turns alternate user/model. Even index = user, odd = assistant.
-  // Convert any embedded HTML to markdown.
   const messages: ChatMessage[] = [];
   for (let i = 0; i < filtered.length; i++) {
     const raw = filtered[i];
@@ -355,53 +460,34 @@ function findGeminiConversation(data: unknown): FoundConv | null {
       content,
     });
   }
-
   if (!messages.length) return null;
   return { messages };
 }
 
-/**
- * Collect strings inside the proto data tree that look like message bodies.
- * We treat a string as a candidate when it sits inside an array whose first
- * element is a role-like marker (`"user"`, `"model"`, integer 0/1) or when
- * it contains HTML/markdown formatting.
- */
 function collectCandidateStrings(data: unknown): string[] {
   const out: string[] = [];
-
-  const visit = (node: unknown, parent: unknown[] | null, _idx: number) => {
+  const visit = (node: unknown) => {
     if (typeof node === "string") {
       const trimmed = node.trim();
       if (!trimmed) return;
-      // Strings containing HTML tags or newlines are very likely message
-      // bodies. Bare alphanumeric short strings (IDs, tokens) are skipped.
       const looksLikeBody =
         /<\/?[a-z][\s\S]*?>/i.test(trimmed) ||
         /\n/.test(trimmed) ||
         trimmed.length > 40;
       if (looksLikeBody) {
-        // Avoid picking up the page-wide hardcoded landing-page strings
-        // (e.g. the "DnVkpd" demo prompts in WIZ_global_data). Those use
-        // a "∞" / "∰" delimiter format we can recognize.
-        if (!/[∞∰]/.test(trimmed)) {
-          out.push(trimmed);
-        }
+        if (!/[∞∰]/.test(trimmed)) out.push(trimmed);
       }
       return;
     }
     if (Array.isArray(node)) {
-      for (let i = 0; i < node.length; i++) visit(node[i], node, i);
+      for (const v of node) visit(v);
       return;
     }
     if (node && typeof node === "object") {
-      for (const v of Object.values(node)) visit(v, null, 0);
+      for (const v of Object.values(node)) visit(v);
     }
   };
-
-  visit(data, null, 0);
-
-  // De-duplicate while preserving order; some payloads include the same
-  // turn twice (rendered + plain text representations).
+  visit(data);
   const seen = new Set<string>();
   const uniq: string[] = [];
   for (const s of out) {
@@ -413,5 +499,4 @@ function collectCandidateStrings(data: unknown): string[] {
   return uniq;
 }
 
-// Re-export so other modules don't have to import json helpers separately.
 export { walkAll };

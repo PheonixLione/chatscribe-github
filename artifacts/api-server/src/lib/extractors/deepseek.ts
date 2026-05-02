@@ -57,7 +57,7 @@ export const deepseek: SourceDescriptor = {
     try {
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
-        timeoutMs: 45_000,
+        timeoutMs: 90_000,
         settleMs: 1500,
         waitFor: {
           fn: `

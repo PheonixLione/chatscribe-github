@@ -61,7 +61,11 @@ export const chatgpt: SourceDescriptor = {
     try {
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
-        timeoutMs: 45_000,
+        // Long ChatGPT shares (100+ turns, code-heavy) can take a while
+        // for React Router to finish hydrating from the turbo-stream
+        // payload. 90s gives slow links headroom without making fast
+        // shares wait — the predicate resolves the moment content arrives.
+        timeoutMs: 90_000,
         settleMs: 1500,
         waitFor: {
           fn: `
