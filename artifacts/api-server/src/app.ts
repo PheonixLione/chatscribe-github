@@ -4,22 +4,14 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
-// Detect AWS-Lambda-style serverless platforms (Netlify Functions, Vercel).
-// `pino-http`'s default config relies on a worker thread which crashes
-// inside Lambda's frozen event loop, and rate limiters with in-memory
-// stores are useless when every invocation is a fresh container.
 const IS_SERVERLESS =
   process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
 
 const app: Express = express();
 
-// Both Replit (mTLS proxy) and Netlify (Lambda + their CDN) put the real
-// client IP in X-Forwarded-For. Trust the first proxy hop so req.ip
-// resolves correctly when the rate limiter or extractor logs need it.
 app.set("trust proxy", 1);
 
 if (!IS_SERVERLESS) {
-  // Long-lived server path: full structured logging via pino-http.
   app.use(
     pinoHttp({
       logger,
@@ -40,11 +32,6 @@ if (!IS_SERVERLESS) {
     }),
   );
 } else {
-  // Serverless path: minimal sync logging to stdout. Netlify/Vercel
-  // already capture per-invocation timing & status in their dashboards;
-  // we only log when something interesting happens (errors, slow
-  // requests). Avoids pino's worker thread which doesn't survive
-  // Lambda's frozen-on-response model.
   app.use((req, res, next) => {
     const start = Date.now();
     res.on("finish", () => {

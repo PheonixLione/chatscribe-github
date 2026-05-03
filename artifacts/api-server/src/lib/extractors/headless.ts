@@ -108,18 +108,7 @@ async function getBrowser(): Promise<Browser> {
     const puppeteer = await import("puppeteer-core");
 
     if (IS_SERVERLESS) {
-      // Serverless path: pull the bundled Chromium binary from
-      // @sparticuz/chromium-min. The package itself is ~50 MB; the
-      // ~170 MB Chromium tarball is downloaded lazily into /tmp on
-      // first call within a Lambda container and reused on warm
-      // invocations. CHROMIUM_PACK_URL must point to the matching
-      // pack release (set in netlify.toml [build.environment]).
       const chromium = await loadChromiumMin();
-      // Pinned default for the Sparticuz pack that matches
-      // @sparticuz/chromium-min ^148.0.0. Used when no environment
-      // override is set — keeps Vercel deploys working out of the box
-      // (Vercel doesn't read netlify.toml). Bump alongside the package
-      // version: https://github.com/Sparticuz/chromium/releases
       const packUrl =
         process.env["CHROMIUM_PACK_URL"] ??
         "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar";
@@ -127,8 +116,6 @@ async function getBrowser(): Promise<Browser> {
       const opts: LaunchOptions = {
         executablePath,
         headless: true,
-        // chromium.args is a curated list tuned for Lambda's read-only
-        // filesystem and tight memory ceiling.
         args: chromium.args,
       };
       return await puppeteer.default.launch(opts);
@@ -200,23 +187,8 @@ export interface RenderResult {
   finalUrl: string;
 }
 
-/**
- * Hard render budget on serverless platforms. Netlify/Vercel free tier
- * forcibly terminates a sync invocation at ~10 seconds — if our render
- * is still running at that point, the platform returns its own opaque
- * timeout response (504 / "Function execution timed out") and the
- * frontend never sees our friendly `headless_unavailable` JSON error.
- *
- * 7 s leaves a ~3 s safety margin: enough headroom for response
- * serialization, lambda freeze cost, and the response trip back
- * through the CDN. Every internal puppeteer timeout (navigation,
- * waitForSelector, waitForFunction) inherits this clamp, so a stalled
- * Gemini batchexecute call or a slow Cloudflare challenge fails fast
- * and surfaces as `headless_unavailable` rather than a platform 504.
- *
- * Long-lived servers (Replit) keep the caller's full requested budget
- * so well-behaved long Gemini conversations still hydrate completely.
- */
+// Clamp render budget below the 10s serverless function timeout so app
+// errors surface before the platform kills the invocation.
 const SERVERLESS_RENDER_BUDGET_MS = 7_000;
 
 export async function renderPage(
@@ -231,13 +203,6 @@ export async function renderPage(
   try {
     browser = await getBrowser();
   } catch (err) {
-    // On serverless (Netlify/Vercel) a launch failure is almost always a
-    // cold-start Chromium download that exceeded the function timeout,
-    // or the binary fetch itself failing. Surface a friendly,
-    // user-actionable error instead of a generic 502 — the frontend
-    // renders `message` directly so the user can retry (the next
-    // invocation may hit a warm container with Chromium already in
-    // /tmp) or fall back to a longer-timeout deployment.
     if (IS_SERVERLESS) {
       throw new ExtractError(
         "headless_unavailable",
@@ -253,11 +218,6 @@ export async function renderPage(
   }
 
   const page = await browser.newPage();
-  // Belt-and-braces: even when individual operations don't take a
-  // `timeout` option, puppeteer's default-timeout setters guarantee the
-  // serverless clamp applies everywhere (waitForResponse, waitForXPath,
-  // future puppeteer additions, etc.). Long-lived servers also benefit
-  // from a tighter default than puppeteer's built-in 30 s.
   page.setDefaultTimeout(timeoutMs);
   page.setDefaultNavigationTimeout(timeoutMs);
   try {

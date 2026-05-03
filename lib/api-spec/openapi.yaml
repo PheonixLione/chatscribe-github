@@ -66,6 +66,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExtractError"
+        "503":
+          description: Headless browser unavailable on this deployment (serverless cold-start or render timeout); retry usually succeeds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractError"
   /sources:
     get:
       operationId: listSupportedSources
