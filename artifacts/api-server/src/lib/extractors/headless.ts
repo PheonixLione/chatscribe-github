@@ -212,6 +212,15 @@ export interface RenderOptions {
     | { fn: string };
   /** Extra wait once the readiness condition is met (lets late hydration finish). */
   settleMs?: number;
+  /**
+   * After waitFor resolves, scroll to the bottom of the page repeatedly
+   * until scrollHeight stabilises. Forces lazy-rendered/virtual-scroll
+   * content (ChatGPT, Claude, Grok, DeepSeek DOM path) into the DOM
+   * before the HTML is captured. Defaults to true. Skipped on serverless
+   * (already budget-constrained). Budget defaults to 20s.
+   */
+  scrollToLoad?: boolean;
+  scrollTimeoutMs?: number;
 }
 
 export interface RenderResult {
@@ -223,6 +232,30 @@ export interface RenderResult {
 // errors surface before the platform kills the invocation.
 const SERVERLESS_RENDER_BUDGET_MS = 7_000;
 const SERVERLESS_LAUNCH_BUDGET_MS = 6_000;
+
+// Scroll to the bottom of the page repeatedly until scrollHeight stops
+// growing, forcing lazy-rendered/virtual-scroll content into the DOM.
+// Exits when height is unchanged for 3 consecutive 1s polls, or when the
+// deadline is reached.
+async function scrollToLoadAll(
+  page: import("puppeteer-core").Page,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let stableCount = 0;
+  let lastHeight = 0;
+  while (Date.now() < deadline && stableCount < 3) {
+    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+    await new Promise<void>((r) => setTimeout(r, 1_000));
+    const height = (await page.evaluate("document.body.scrollHeight")) as number;
+    if (height === lastHeight) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+      lastHeight = height;
+    }
+  }
+}
 
 export async function renderPage(
   url: string,
@@ -345,6 +378,14 @@ export async function renderPage(
         `The share page never rendered its conversation content within ${Math.round(timeoutMs / 1000)}s.`,
         { source: opts.source },
       );
+    }
+
+    // Scroll to the bottom repeatedly so that lazily-rendered/virtual-scroll
+    // content (ChatGPT, Claude, Grok, DeepSeek DOM path) is fully in the
+    // DOM before we capture the HTML. Skipped on serverless (budget too
+    // tight) and when the caller explicitly opts out.
+    if (!IS_SERVERLESS && opts.scrollToLoad !== false) {
+      await scrollToLoadAll(page, opts.scrollTimeoutMs ?? 20_000);
     }
 
     if (opts.settleMs) {

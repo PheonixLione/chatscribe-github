@@ -542,7 +542,7 @@ function collectCandidateStrings(data: unknown): string[] {
   const seen = new Set<string>();
   const uniq: string[] = [];
   for (const s of out) {
-    const key = s.length > 200 ? s.slice(0, 200) : s;
+    const key = s;
     if (seen.has(key)) continue;
     seen.add(key);
     uniq.push(s);

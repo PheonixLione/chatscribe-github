@@ -244,7 +244,12 @@ function findChatGPTConversation(data: unknown): FoundConv | null {
       }
     }
     const children = getArray(node, "children");
-    cursor = children && typeof children[0] === "string" ? children[0] : undefined;
+    // Follow the last child (most recently accepted response). children[0]
+    // would be the discarded draft when the user regenerated a reply.
+    cursor =
+      children && children.length > 0 && typeof children[children.length - 1] === "string"
+        ? (children[children.length - 1] as string)
+        : undefined;
   }
   if (!messages.length) return null;
   return { title, messages };
