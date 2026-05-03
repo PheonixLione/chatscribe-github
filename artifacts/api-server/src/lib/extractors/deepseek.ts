@@ -110,13 +110,24 @@ function isAwsWafChallenge(html: string): boolean {
  * preceded each assistant turn.
  */
 function parseHtml(html: string, originalUrl: string): Conversation | null {
-  // Some DeepSeek share responses (and our fixtures / cached snapshots)
-  // inline the entire conversation as a `window.__INITIAL_STATE__` blob
-  // before React even mounts. When present this is by far the most
-  // reliable source — we don't need any DOM heuristics.
+  // Run both parsers and return whichever yields more messages. This
+  // handles two failure modes:
+  //   (a) __INITIAL_STATE__ has only the first N messages (server paginates
+  //       the initial render) while the fully-scrolled DOM has everything.
+  //   (b) __INITIAL_STATE__ is absent (WAF redirect → SPA fetch, no SSR)
+  //       and only the DOM is available.
   const fromState = parseInitialState(html, originalUrl);
-  if (fromState) return fromState;
+  const fromDom = parseDomHtml(html, originalUrl);
 
+  if (fromState && fromDom) {
+    return fromState.messages.length >= fromDom.messages.length
+      ? fromState
+      : fromDom;
+  }
+  return fromState ?? fromDom ?? null;
+}
+
+function parseDomHtml(html: string, originalUrl: string): Conversation | null {
   const $ = cheerio.load(html);
 
   const messages: ChatMessage[] = [];

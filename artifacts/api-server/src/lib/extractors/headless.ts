@@ -233,10 +233,38 @@ export interface RenderResult {
 const SERVERLESS_RENDER_BUDGET_MS = 7_000;
 const SERVERLESS_LAUNCH_BUDGET_MS = 6_000;
 
-// Scroll to the bottom of the page repeatedly until scrollHeight stops
-// growing, forcing lazy-rendered/virtual-scroll content into the DOM.
-// Exits when height is unchanged for 3 consecutive 1s polls, or when the
-// deadline is reached.
+// Scroll ALL scrollable containers (window + any overflow:auto/scroll div)
+// to the bottom, then measure the tallest scrollHeight across all of them.
+// Modern AI share pages (DeepSeek, Claude, Grok, ChatGPT) render the
+// conversation inside a fixed-height div with overflow-y:auto — not the
+// body — so window.scrollTo alone is a no-op for those containers.
+const SCROLL_ALL_JS = `(function () {
+  window.scrollTo(0, document.body.scrollHeight);
+  var all = document.querySelectorAll('div,main,section,article,ul,ol');
+  for (var i = 0; i < all.length; i++) {
+    try {
+      var el = all[i];
+      if (el.scrollHeight > el.clientHeight + 50) {
+        var s = window.getComputedStyle(el);
+        if (/auto|scroll/.test(s.overflowY) || /auto|scroll/.test(s.overflow)) {
+          el.scrollTop = el.scrollHeight;
+        }
+      }
+    } catch (e) {}
+  }
+})()`;
+
+// Return the largest scrollHeight across body and all scrollable divs so
+// we can detect when no new content is loading.
+const MAX_HEIGHT_JS = `(function () {
+  var h = document.body.scrollHeight;
+  var all = document.querySelectorAll('div,main,section,article');
+  for (var i = 0; i < all.length; i++) {
+    try { if (all[i].scrollHeight > h) h = all[i].scrollHeight; } catch (e) {}
+  }
+  return h;
+})()`;
+
 async function scrollToLoadAll(
   page: import("puppeteer-core").Page,
   timeoutMs: number,
@@ -245,9 +273,9 @@ async function scrollToLoadAll(
   let stableCount = 0;
   let lastHeight = 0;
   while (Date.now() < deadline && stableCount < 3) {
-    await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
-    await new Promise<void>((r) => setTimeout(r, 1_000));
-    const height = (await page.evaluate("document.body.scrollHeight")) as number;
+    await page.evaluate(SCROLL_ALL_JS);
+    await new Promise<void>((r) => setTimeout(r, 1_200));
+    const height = (await page.evaluate(MAX_HEIGHT_JS)) as number;
     if (height === lastHeight) {
       stableCount++;
     } else {
