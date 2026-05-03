@@ -69,6 +69,13 @@ export interface Conversation {
   * `not_public` — Link requires login, was deleted, or is private.
   * `fetch_failed` — The remote site refused or failed the request.
   * `parse_failed` — The page was fetched but could not be parsed.
+  * `headless_unavailable` — The headless browser used to render
+    JavaScript share pages (Gemini, DeepSeek) could not start or
+    finish in time on this deployment. Returned with HTTP 503.
+    Almost always transient on serverless platforms with tight
+    function timeouts (Netlify/Vercel free tier, 10 s). Retrying
+    usually succeeds because the next invocation hits a warm
+    container with Chromium already cached in `/tmp`.
 
  */
 export type ExtractErrorCode =
@@ -79,6 +86,7 @@ export const ExtractErrorCode = {
   not_public: "not_public",
   fetch_failed: "fetch_failed",
   parse_failed: "parse_failed",
+  headless_unavailable: "headless_unavailable",
 } as const;
 
 export interface ExtractError {
