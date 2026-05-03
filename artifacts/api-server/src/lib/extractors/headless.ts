@@ -423,7 +423,17 @@ export async function renderPage(
       page.on("response", (res) => {
         const ct = res.headers()["content-type"] ?? "";
         if (!ct.includes("json")) return;
-        res.json().then((data: unknown) => cb(res.url(), data)).catch(() => {});
+        // Use res.text() + JSON.parse so encoding quirks that trip up
+        // res.json() are surfaced rather than silently swallowed.
+        res.text().then((text) => {
+          try {
+            cb(res.url(), JSON.parse(text));
+          } catch {
+            process.stderr.write(
+              `[headless] JSON parse failed for ${res.url()} body=${text.slice(0, 120)}\n`,
+            );
+          }
+        }).catch(() => {});
       });
     }
 

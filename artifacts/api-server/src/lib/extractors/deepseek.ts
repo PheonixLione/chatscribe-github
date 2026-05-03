@@ -73,8 +73,11 @@ export const deepseek: SourceDescriptor = {
         settleMs: 2000,
         scrollToLoad: false,
         scrollUp: true,
-        onJsonResponse: (_respUrl, body) => {
+        onJsonResponse: (respUrl, body) => {
           const conv = conversationFromState(body, url.toString());
+          process.stderr.write(
+            `[deepseek] intercepted ${respUrl} → ${conv ? conv.messages.length + " msgs" : "no match"}\n`,
+          );
           if (conv && conv.messages.length > 0) {
             interceptedBatches.push(conv);
           }
@@ -94,6 +97,7 @@ export const deepseek: SourceDescriptor = {
       });
 
       // XHR-captured batches are authoritative — full JSON before DOM windowing.
+      process.stderr.write(`[deepseek] total batches captured: ${interceptedBatches.length}\n`);
       if (interceptedBatches.length > 0) {
         return mergeInterceptedBatches(interceptedBatches, url.toString());
       }
@@ -364,13 +368,14 @@ function conversationFromState(
         const role = item.role;
         if (typeof role !== "string") continue;
 
-        // Normalise role variants across providers.
+        // Normalise role variants across providers (case-insensitive).
+        const r = role.toLowerCase();
         const normRole: "user" | "assistant" | "system" | null =
-          role === "user" || role === "human"
+          r === "user" || r === "human"
             ? "user"
-            : role === "assistant" || role === "model"
+            : r === "assistant" || r === "model"
               ? "assistant"
-              : role === "system"
+              : r === "system"
                 ? "system"
                 : null; // thinking / tool / function / etc — skip silently
         if (!normRole) continue;
@@ -393,6 +398,16 @@ function conversationFromState(
             .filter(Boolean)
             .join("\n\n")
             .trim();
+        }
+        // Fallback: try alternate field names DeepSeek may use.
+        if (!content) {
+          for (const alt of ["content_v2", "text", "message", "body"]) {
+            const v = item[alt];
+            if (typeof v === "string" && v.trim()) {
+              content = v.trim();
+              break;
+            }
+          }
         }
         if (!content) continue;
 
