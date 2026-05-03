@@ -69,7 +69,7 @@ const FEATURES = [
   {
     icon: Lock,
     title: "Public links only",
-    body: "Chat Extractor only reads links the AI platform has chosen to make public. Your private chats stay private.",
+    body: "ChatScribe only reads links the AI platform has chosen to make public. Your private chats stay private.",
   },
 ];
 
@@ -282,7 +282,7 @@ export function Home() {
               <section aria-labelledby="features-heading" className="border-t border-border/60 pt-16">
                 <div className="text-center max-w-2xl mx-auto mb-10">
                   <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-                    Why use Chat Extractor?
+                    Why use ChatScribe?
                   </h2>
                   <p className="mt-3 text-muted-foreground">
                     A purpose-built tool for saving the AI conversations that matter.
@@ -366,7 +366,7 @@ export function Home() {
                 <dl className="space-y-6 max-w-2xl mx-auto">
                   {[
                     {
-                      q: "Is Chat Extractor really free?",
+                      q: "Is ChatScribe really free?",
                       a: "Yes. There's no signup, no paywall, and no usage limits.",
                     },
                     {

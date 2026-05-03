@@ -16,7 +16,7 @@ const PLATFORMS: PlatformInfo[] = [
     hosts: ["chatgpt.com/share/...", "chat.openai.com/share/..."],
     example: "https://chatgpt.com/share/abcd-1234",
     howToShare:
-      "In ChatGPT, open the conversation, click the Share icon in the top-right, then \"Create link\". Copy the resulting link and paste it into Chat Extractor.",
+      "In ChatGPT, open the conversation, click the Share icon in the top-right, then \"Create link\". Copy the resulting link and paste it into ChatScribe.",
   },
   {
     name: "Claude",
@@ -59,7 +59,7 @@ export default function SupportedPlatforms() {
   useSEO({
     title: "Supported AI Platforms",
     description:
-      "Chat Extractor supports ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek public share links. See the URL formats we accept and how to share from each platform.",
+      "ChatScribe supports ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek public share links. See the URL formats we accept and how to share from each platform.",
     path: "/supported-platforms",
     keywords:
       "extract chatgpt share link, claude share link extractor, gemini chat exporter, grok share extractor, perplexity exporter, deepseek share",
@@ -70,7 +70,7 @@ export default function SupportedPlatforms() {
       <ContentPage
         eyebrow="Reference"
         title="Supported AI platforms"
-        intro="Chat Extractor works with public share links from every major AI chat platform. If you can open a link in an incognito tab without signing in, we can extract it."
+        intro="ChatScribe works with public share links from every major AI chat platform. If you can open a link in an incognito tab without signing in, we can extract it."
       >
         <p>
           Below is the full list of supported sources, their URL formats, and a

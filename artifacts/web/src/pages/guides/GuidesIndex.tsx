@@ -15,7 +15,7 @@ const SPOKES = [
     href: "/guides/save-chatgpt-as-pdf",
     title: "How to save a ChatGPT conversation as PDF",
     description:
-      "Three ways to export a ChatGPT chat to PDF: built-in print, the share-link method, and Chat Extractor for clean formatting.",
+      "Three ways to export a ChatGPT chat to PDF: built-in print, the share-link method, and ChatScribe for clean formatting.",
   },
   {
     href: "/guides/export-claude-to-markdown",
@@ -64,7 +64,7 @@ export default function GuidesIndex() {
   useJsonLd("guides-itemlist", {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Chat Extractor guides",
+    name: "ChatScribe guides",
     itemListElement: [PILLAR, ...SPOKES].map((g, i) => ({
       "@type": "ListItem",
       position: i + 1,

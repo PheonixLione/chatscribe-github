@@ -6,7 +6,7 @@ export default function Privacy() {
   useSEO({
     title: "Privacy Policy",
     description:
-      "Chat Extractor does not store the URLs you submit or the conversations we extract. Read the full privacy policy.",
+      "ChatScribe does not store the URLs you submit or the conversations we extract. Read the full privacy policy.",
     path: "/privacy",
   });
 
@@ -59,7 +59,7 @@ export default function Privacy() {
 
         <h2>Children</h2>
         <p>
-          Chat Extractor is not directed at children under 13 and does not
+          ChatScribe is not directed at children under 13 and does not
           knowingly collect any information from them.
         </p>
 

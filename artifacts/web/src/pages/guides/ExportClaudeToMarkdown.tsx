@@ -9,7 +9,7 @@ export default function ExportClaudeToMarkdown() {
       keywords="export claude to markdown, claude conversation to markdown, claude share link, save claude chat, claude.ai download, anthropic chat export"
       eyebrow="CLAUDE GUIDE"
       heading="How to export a Claude conversation to Markdown"
-      tldr="To export a Claude conversation to Markdown: open the chat in Claude.ai, click the Share button at the top, copy the public link (claude.ai/share/...), paste it into Chat Extractor, and click Download as Markdown. Code blocks, lists, headings, and inline formatting are preserved exactly."
+      tldr="To export a Claude conversation to Markdown: open the chat in Claude.ai, click the Share button at the top, copy the public link (claude.ai/share/...), paste it into ChatScribe, and click Download as Markdown. Code blocks, lists, headings, and inline formatting are preserved exactly."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -33,7 +33,7 @@ export default function ExportClaudeToMarkdown() {
             text: "Copy the generated URL — it will look like https://claude.ai/share/...",
           },
           {
-            name: "Paste into Chat Extractor",
+            name: "Paste into ChatScribe",
             text: "Open chatextractor.replit.app, paste the URL, and click Extract. The conversation will render in seconds.",
           },
           {

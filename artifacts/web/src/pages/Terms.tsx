@@ -6,7 +6,7 @@ export default function Terms() {
   useSEO({
     title: "Terms of Service",
     description:
-      "The terms that govern your use of Chat Extractor — a free, public-share-link extractor for AI conversations.",
+      "The terms that govern your use of ChatScribe — a free, public-share-link extractor for AI conversations.",
     path: "/terms",
   });
 
@@ -15,17 +15,17 @@ export default function Terms() {
       <ContentPage
         eyebrow="Legal"
         title="Terms of Service"
-        intro="Last updated: 2026. Use Chat Extractor responsibly and at your own risk."
+        intro="Last updated: 2026. Use ChatScribe responsibly and at your own risk."
       >
         <h2>Acceptance of terms</h2>
         <p>
-          By using Chat Extractor (the "Service") you agree to these Terms. If
+          By using ChatScribe (the "Service") you agree to these Terms. If
           you do not agree, please do not use the Service.
         </p>
 
         <h2>What the Service does</h2>
         <p>
-          Chat Extractor accepts a public share link from a supported AI chat
+          ChatScribe accepts a public share link from a supported AI chat
           platform, fetches the publicly available content at that link, and
           returns a structured Markdown copy that you can read, copy, or
           download.
@@ -71,7 +71,7 @@ export default function Terms() {
 
         <h2>Limitation of liability</h2>
         <p>
-          To the maximum extent permitted by law, Chat Extractor and its
+          To the maximum extent permitted by law, ChatScribe and its
           authors are not liable for any indirect, incidental, special,
           consequential, or punitive damages arising from or related to your
           use of the Service.
@@ -80,7 +80,7 @@ export default function Terms() {
         <h2>Trademarks</h2>
         <p>
           ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek, and all related
-          marks are the property of their respective owners. Chat Extractor is
+          marks are the property of their respective owners. ChatScribe is
           an independent project and is not affiliated with, endorsed by, or
           sponsored by any of these companies.
         </p>

@@ -7,7 +7,7 @@ export default function HowItWorks() {
   useSEO({
     title: "How It Works",
     description:
-      "Learn how Chat Extractor turns a public ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek share link into clean Markdown, PDF, or text in seconds.",
+      "Learn how ChatScribe turns a public ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek share link into clean Markdown, PDF, or text in seconds.",
     path: "/how-it-works",
     keywords:
       "how to extract chatgpt conversation, save claude chat, export gemini chat, download grok conversation",
@@ -17,7 +17,7 @@ export default function HowItWorks() {
     <Layout>
       <ContentPage
         eyebrow="Guide"
-        title="How Chat Extractor works"
+        title="How ChatScribe works"
         intro="Three steps from a public share link to a clean copy you actually own. No accounts, no plugins, no copy-pasting screenshots."
       >
         <h2>1. Paste a public share link</h2>
@@ -60,7 +60,7 @@ export default function HowItWorks() {
 
         <h2>What does it cost?</h2>
         <p>
-          Nothing. Chat Extractor is free to use and doesn't require an account.
+          Nothing. ChatScribe is free to use and doesn't require an account.
           We don't store your links or your extracted conversations — every
           request is processed and discarded.
         </p>

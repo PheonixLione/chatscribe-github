@@ -9,7 +9,7 @@ export default function SaveGrokConversation() {
       keywords="save grok conversation, grok share link, xai grok export, grok to markdown, grok to pdf, x ai chat archive"
       eyebrow="GROK GUIDE"
       heading="How to save a Grok (xAI) conversation"
-      tldr="To save a Grok chat: open the conversation on grok.com or x.com, click the Share button, copy the public link (grok.com/share/... or x.com/i/grok/share/...), paste it into Chat Extractor, and download as Markdown or PDF. Do this soon — Grok shares can be revoked or rotated by xAI."
+      tldr="To save a Grok chat: open the conversation on grok.com or x.com, click the Share button, copy the public link (grok.com/share/... or x.com/i/grok/share/...), paste it into ChatScribe, and download as Markdown or PDF. Do this soon — Grok shares can be revoked or rotated by xAI."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -33,7 +33,7 @@ export default function SaveGrokConversation() {
             text: "Copy the URL. It will look like https://grok.com/share/... or https://x.com/i/grok/share/... depending on where you opened the share dialog.",
           },
           {
-            name: "Extract with Chat Extractor",
+            name: "Extract with ChatScribe",
             text: "Paste the link into chatextractor.replit.app and click Extract. We use a headless browser to capture the rendered conversation, since Grok pages hydrate content with JavaScript.",
           },
           {
@@ -57,7 +57,7 @@ export default function SaveGrokConversation() {
         },
         {
           q: "Can I extract Grok chats that are not shared publicly?",
-          a: "No. Like every other platform, Chat Extractor only works with public share URLs. Generate a share link first, then extract immediately.",
+          a: "No. Like every other platform, ChatScribe only works with public share URLs. Generate a share link first, then extract immediately.",
         },
         {
           q: "Will code blocks and tables be preserved?",

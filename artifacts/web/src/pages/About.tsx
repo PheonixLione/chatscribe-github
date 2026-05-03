@@ -5,9 +5,9 @@ import { useSEO } from "@/lib/seo";
 
 export default function About() {
   useSEO({
-    title: "About Chat Extractor",
+    title: "About ChatScribe",
     description:
-      "Chat Extractor is a free, privacy-respecting tool for saving public AI chat conversations from ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek.",
+      "ChatScribe is a free, privacy-respecting tool for saving public AI chat conversations from ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek.",
     path: "/about",
     keywords:
       "about chat extractor, ai conversation saver, free ai chat tool, privacy-focused ai exporter",
@@ -17,7 +17,7 @@ export default function About() {
     <Layout>
       <ContentPage
         eyebrow="About"
-        title="About Chat Extractor"
+        title="About ChatScribe"
         intro="A simple, free tool for keeping the AI conversations that matter."
       >
         <h2>Why we built this</h2>
@@ -34,7 +34,7 @@ export default function About() {
           want a copy you actually own, you have to hand-scrape it.
         </p>
         <p>
-          Chat Extractor exists to make that one-click. Paste a public share
+          ChatScribe exists to make that one-click. Paste a public share
           link, get a clean Markdown / PDF / text copy you can keep, share,
           search, or paste into your own notes.
         </p>
@@ -61,7 +61,7 @@ export default function About() {
 
         <h2>Independence</h2>
         <p>
-          Chat Extractor is an independent project. It is not affiliated with,
+          ChatScribe is an independent project. It is not affiliated with,
           endorsed by, or sponsored by OpenAI, Anthropic, Google, xAI,
           Perplexity, DeepSeek, or any other AI platform. All trademarks belong
           to their respective owners. We only access content that the platform

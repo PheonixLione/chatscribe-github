@@ -15,7 +15,7 @@ const SPOKES = [
     href: "/guides/save-chatgpt-as-pdf",
     title: "Save a ChatGPT conversation as PDF",
     description:
-      "Three reliable methods, including the cleanest one (Chat Extractor) for production-quality PDFs.",
+      "Three reliable methods, including the cleanest one (ChatScribe) for production-quality PDFs.",
   },
   {
     href: "/guides/export-claude-to-markdown",
@@ -54,7 +54,7 @@ const FAQS = [
   },
   {
     q: "Can I extract a chat that I haven't shared publicly?",
-    a: "No. Chat Extractor only works with publicly shared URLs. To save a private conversation, first generate a share link inside the AI platform, then paste that link into Chat Extractor.",
+    a: "No. ChatScribe only works with publicly shared URLs. To save a private conversation, first generate a share link inside the AI platform, then paste that link into ChatScribe.",
   },
   {
     q: "Will the formatting survive the export?",

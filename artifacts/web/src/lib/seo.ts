@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 export const SITE_URL = "https://chatextractor.replit.app";
-export const SITE_NAME = "Chat Extractor";
+export const SITE_NAME = "ChatScribe";
 export const SITE_TAGLINE =
   "Extract, read, and export any AI chat share link as Markdown, PDF, or text — free, no signup.";
 

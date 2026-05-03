@@ -9,7 +9,7 @@ export default function DownloadGeminiChat() {
       keywords="download gemini chat, save gemini conversation, gemini share link, google gemini export, gemini to markdown, gemini to pdf"
       eyebrow="GEMINI GUIDE"
       heading="How to download a Gemini (Google AI) chat"
-      tldr="To download a Gemini conversation: open it on gemini.google.com, click the Share & export menu, choose Share, copy the public g.co/gemini/share/... link, paste it into Chat Extractor, and click your preferred download format (Markdown, PDF, or plain text)."
+      tldr="To download a Gemini conversation: open it on gemini.google.com, click the Share & export menu, choose Share, copy the public g.co/gemini/share/... link, paste it into ChatScribe, and click your preferred download format (Markdown, PDF, or plain text)."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -33,7 +33,7 @@ export default function DownloadGeminiChat() {
             text: "Pick the Share option, then 'Create public link'. Gemini will generate a g.co/gemini/share/... URL anyone can open.",
           },
           {
-            name: "Copy the link and paste into Chat Extractor",
+            name: "Copy the link and paste into ChatScribe",
             text: "Copy the public URL, open chatextractor.replit.app, paste it into the input, and click Extract.",
           },
           {
@@ -45,7 +45,7 @@ export default function DownloadGeminiChat() {
       faqs={[
         {
           q: "Why doesn't Gemini have a built-in download?",
-          a: "Gemini's official Share & export menu only offers 'Share' (creates a public link) and 'Export to Docs' (sends the response to Google Docs). There's no native Markdown or PDF download — that's the gap Chat Extractor fills.",
+          a: "Gemini's official Share & export menu only offers 'Share' (creates a public link) and 'Export to Docs' (sends the response to Google Docs). There's no native Markdown or PDF download — that's the gap ChatScribe fills.",
         },
         {
           q: "Does this work with Gemini Advanced (the paid tier)?",
@@ -57,7 +57,7 @@ export default function DownloadGeminiChat() {
         },
         {
           q: "Will it capture multi-turn conversations?",
-          a: "Gemini's share button shares the entire conversation thread up to the point you clicked it, not just one response. Chat Extractor preserves the full back-and-forth.",
+          a: "Gemini's share button shares the entire conversation thread up to the point you clicked it, not just one response. ChatScribe preserves the full back-and-forth.",
         },
         {
           q: "Are images Gemini generated included?",

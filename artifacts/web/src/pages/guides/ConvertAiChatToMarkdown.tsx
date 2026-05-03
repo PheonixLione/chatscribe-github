@@ -9,7 +9,7 @@ export default function ConvertAiChatToMarkdown() {
       keywords="convert ai chat to markdown, ai conversation to markdown, chatgpt to markdown, claude to markdown, gemini to markdown, grok to markdown, perplexity to markdown, deepseek to markdown"
       eyebrow="UNIVERSAL GUIDE"
       heading="How to convert any AI chat to Markdown"
-      tldr="Every major AI platform (ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) lets you generate a public share link for a conversation. Paste that link into Chat Extractor and click Download as Markdown — the result is plain text that opens in any editor and preserves all formatting."
+      tldr="Every major AI platform (ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) lets you generate a public share link for a conversation. Paste that link into ChatScribe and click Download as Markdown — the result is plain text that opens in any editor and preserves all formatting."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -29,7 +29,7 @@ export default function ConvertAiChatToMarkdown() {
             text: "Copy the generated public URL. The exact format differs per platform but they all look like /share/... or contain the word 'share' somewhere in the path.",
           },
           {
-            name: "Paste into Chat Extractor and download Markdown",
+            name: "Paste into ChatScribe and download Markdown",
             text: "Open chatextractor.replit.app, paste the URL, click Extract, then click the Markdown download button. The .md file preserves headings, fenced code blocks (with language tags), bullet/numbered lists, bold/italic, links, and tables.",
           },
         ],

@@ -9,7 +9,7 @@ export default function SaveChatgptAsPdf() {
       keywords="save chatgpt as pdf, export chatgpt to pdf, chatgpt to pdf, download chatgpt conversation pdf, chatgpt share link to pdf"
       eyebrow="CHATGPT GUIDE"
       heading="How to save a ChatGPT conversation as PDF"
-      tldr="The cleanest way to save a ChatGPT chat as PDF: open the conversation, click the Share button, copy the public link, paste it into Chat Extractor, and click Download as PDF. This preserves code blocks, lists, and inline formatting — which browser print-to-PDF usually mangles."
+      tldr="The cleanest way to save a ChatGPT chat as PDF: open the conversation, click the Share button, copy the public link, paste it into ChatScribe, and click Download as PDF. This preserves code blocks, lists, and inline formatting — which browser print-to-PDF usually mangles."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -33,7 +33,7 @@ export default function SaveChatgptAsPdf() {
             text: "Click 'Create link' (or 'Update link' if one exists), then copy the URL. It will look like https://chatgpt.com/share/...",
           },
           {
-            name: "Paste the link into Chat Extractor",
+            name: "Paste the link into ChatScribe",
             text: "Open chatextractor.replit.app, paste the URL into the input box, and click Extract.",
           },
           {
@@ -53,7 +53,7 @@ export default function SaveChatgptAsPdf() {
         },
         {
           q: "Can I save a private ChatGPT conversation without sharing it publicly?",
-          a: "Not directly through Chat Extractor — we only work with public share URLs. The workaround is to create the share link, save the PDF, and then immediately delete the share link from your ChatGPT account. The link only needs to exist for the few seconds it takes us to fetch the page.",
+          a: "Not directly through ChatScribe — we only work with public share URLs. The workaround is to create the share link, save the PDF, and then immediately delete the share link from your ChatGPT account. The link only needs to exist for the few seconds it takes us to fetch the page.",
         },
         {
           q: "Will images and DALL·E generations be included?",
