@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/netlify-functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@workspace/api-server": "workspace:*",
+    "serverless-http": "^4.0.0"
+  }
+}
