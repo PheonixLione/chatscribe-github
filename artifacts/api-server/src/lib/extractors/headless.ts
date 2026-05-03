@@ -26,6 +26,29 @@ import { ExtractError, type ChatSource } from "./types";
 const IS_SERVERLESS =
   process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
 
+/**
+ * Minimal structural type for the bits of `@sparticuz/chromium-min` we
+ * actually use. The package ships its own .d.ts but we declare a local
+ * shape so the dynamic-import-with-default-unwrap can stay typed without
+ * pulling the dep into the static import graph (it's only loaded on
+ * serverless platforms — long-lived servers never resolve it).
+ */
+interface ChromiumMin {
+  args: string[];
+  executablePath: (packUrl?: string) => Promise<string>;
+}
+
+async function loadChromiumMin(): Promise<ChromiumMin> {
+  // The package's default export is a class with `args`/`executablePath`
+  // as static members — structurally compatible with our minimal shape.
+  // Cast through `unknown` because TS won't widen a class's static side
+  // to a plain interface on its own.
+  const mod = (await import("@sparticuz/chromium-min")) as unknown as {
+    default: ChromiumMin;
+  };
+  return mod.default;
+}
+
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
@@ -91,9 +114,7 @@ async function getBrowser(): Promise<Browser> {
       // first call within a Lambda container and reused on warm
       // invocations. CHROMIUM_PACK_URL must point to the matching
       // pack release (set in netlify.toml [build.environment]).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const chromiumMod: any = await import("@sparticuz/chromium-min");
-      const chromium = chromiumMod.default ?? chromiumMod;
+      const chromium = await loadChromiumMin();
       const packUrl = process.env["CHROMIUM_PACK_URL"];
       if (!packUrl) {
         throw new Error(
@@ -101,15 +122,13 @@ async function getBrowser(): Promise<Browser> {
             "Set it in netlify.toml or your platform's environment vars.",
         );
       }
-      const executablePath: string = await chromium.executablePath(packUrl);
+      const executablePath = await chromium.executablePath(packUrl);
       const opts: LaunchOptions = {
         executablePath,
         headless: true,
         // chromium.args is a curated list tuned for Lambda's read-only
         // filesystem and tight memory ceiling.
-        args: chromium.args as string[],
-        // Sparticuz ships its own viewport defaults — use them.
-        defaultViewport: chromium.defaultViewport,
+        args: chromium.args,
       };
       return await puppeteer.default.launch(opts);
     }
@@ -189,6 +208,20 @@ export async function renderPage(
   try {
     browser = await getBrowser();
   } catch (err) {
+    // On serverless (Netlify/Vercel) a launch failure is almost always a
+    // cold-start Chromium download that exceeded the function timeout,
+    // or the binary fetch itself failing. Surface a friendly,
+    // user-actionable error instead of a generic 502 — the frontend
+    // renders `message` directly so the user can retry (the next
+    // invocation may hit a warm container with Chromium already in
+    // /tmp) or fall back to a longer-timeout deployment.
+    if (IS_SERVERLESS) {
+      throw new ExtractError(
+        "headless_unavailable",
+        "The browser used to render this share page could not start in time on this deployment. Please try again in a moment — the next attempt usually succeeds because the browser has been warmed up.",
+        { source: opts.source },
+      );
+    }
     throw new ExtractError(
       "fetch_failed",
       `Could not start the headless browser used to render JavaScript share pages (${(err as Error).message}).`,
@@ -263,6 +296,19 @@ export async function renderPage(
         );
       }
     } catch {
+      // On serverless, a render timeout is the dominant failure mode —
+      // a cold container plus a slow XHR (Gemini in particular streams
+      // its conversation via a 2 MB+ batchexecute call) routinely
+      // exceeds the 10 s budget. Surface the actionable
+      // `headless_unavailable` code so the frontend can prompt a retry
+      // rather than treating it as a permanent parse failure.
+      if (IS_SERVERLESS) {
+        throw new ExtractError(
+          "headless_unavailable",
+          `The share page did not finish rendering within this deployment's ${Math.round(timeoutMs / 1000)}s budget. Please try again — a warm container usually finishes well under the limit.`,
+          { source: opts.source },
+        );
+      }
       throw new ExtractError(
         "parse_failed",
         `The share page never rendered its conversation content within ${Math.round(timeoutMs / 1000)}s.`,

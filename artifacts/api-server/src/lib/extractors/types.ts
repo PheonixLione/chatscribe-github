@@ -27,7 +27,17 @@ export type ExtractErrorCode =
   | "unsupported_url"
   | "not_public"
   | "fetch_failed"
-  | "parse_failed";
+  | "parse_failed"
+  /**
+   * Headless-browser path failed in a way the user can plausibly retry —
+   * cold-start Chromium download exceeded the function timeout, the
+   * binary failed to launch, or the render budget elapsed. Used by
+   * Gemini/DeepSeek extractions on serverless platforms with tight
+   * (10 s) function timeouts. The frontend renders `message` directly,
+   * so the user sees a friendly "try again or use the Replit
+   * deployment" prompt instead of an opaque 500.
+   */
+  | "headless_unavailable";
 
 export class ExtractError extends Error {
   code: ExtractErrorCode;
@@ -48,7 +58,9 @@ export class ExtractError extends Error {
         ? 400
         : code === "not_public"
           ? 404
-          : 502);
+          : code === "headless_unavailable"
+            ? 503
+            : 502);
   }
 }
 
