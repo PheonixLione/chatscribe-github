@@ -69,10 +69,12 @@ export const deepseek: SourceDescriptor = {
 
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
-        timeoutMs: 90_000,
-        settleMs: 2000,
+        timeoutMs: 120_000,
+        settleMs: 3000,
         scrollToLoad: false,
         scrollUp: true,
+        scrollUpTimeoutMs: 60_000,
+        scrollUpProgress: () => interceptedBatches.length,
         onJsonResponse: (respUrl, body) => {
           const conv = conversationFromState(body, url.toString());
           process.stderr.write(
@@ -365,6 +367,13 @@ function conversationFromState(
       for (const item of arr) {
         if (!isObject(item)) { valid = false; break; }
         const role = item.role;
+        // Non-display message types (DeepSeek R1 chain-of-thought, tool
+        // calls): skip the item but keep the array valid. Any OTHER
+        // unrecognised role still rejects the whole array — that's what
+        // protects against the wrong-array selection bug.
+        if (role === "thinking" || role === "tool" || role === "function") {
+          continue;
+        }
         const content = item.content;
         if (
           (role !== "user" && role !== "assistant" && role !== "system") ||
@@ -434,7 +443,9 @@ function mergeInterceptedBatches(
   // Reverse so the batch that arrived LAST (= earliest messages) comes first.
   for (const batch of [...batches].reverse()) {
     for (const msg of batch.messages) {
-      const key = `${msg.role}\x00${msg.content.slice(0, 100)}`;
+      // Full content as dedup key — first-100-chars collapses distinct
+      // messages that share boilerplate openers in long conversations.
+      const key = `${msg.role}\x00${msg.content}`;
       if (!seen.has(key)) {
         seen.add(key);
         messages.push(msg);

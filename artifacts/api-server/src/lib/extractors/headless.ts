@@ -232,6 +232,15 @@ export interface RenderOptions {
   scrollUp?: boolean;
   scrollUpTimeoutMs?: number;
   /**
+   * Caller-supplied progress metric for `scrollUp`. When provided,
+   * scrollToTopAll uses this number (e.g. count of intercepted XHR
+   * batches) as the stability signal instead of `scrollTop`. The loop
+   * exits only when this value stops increasing for several consecutive
+   * polls. Use this for virtual-list pages where `scrollTop` stays at 0
+   * even while new earlier-message batches load above the viewport.
+   */
+  scrollUpProgress?: () => number;
+  /**
    * Called for every JSON response the page receives. Use this to intercept
    * API responses that contain the full conversation data before the DOM is
    * rendered (avoids virtual-list truncation entirely). Only fires for
@@ -343,19 +352,26 @@ const MIN_SCROLL_TOP_JS = `(function () {
 async function scrollToTopAll(
   page: import("puppeteer-core").Page,
   timeoutMs: number,
+  progressFn?: () => number,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let stableCount = 0;
-  let lastTop = -2;
-  while (Date.now() < deadline && stableCount < 3) {
+  let lastValue = -2;
+  // 5 stable polls × 1.5 s = 7.5 s of "no progress" before exit. Long
+  // DeepSeek conversations can have 1-2 s gaps between paginated XHR
+  // batches; the old 3 × 1.2 s = 3.6 s threshold was too aggressive.
+  const requireStable = 5;
+  while (Date.now() < deadline && stableCount < requireStable) {
     await page.evaluate(SCROLL_TOP_JS);
-    await new Promise<void>((r) => setTimeout(r, 1_200));
-    const top = (await page.evaluate(MIN_SCROLL_TOP_JS)) as number;
-    if (top === lastTop) {
+    await new Promise<void>((r) => setTimeout(r, 1_500));
+    const value = progressFn
+      ? progressFn()
+      : ((await page.evaluate(MIN_SCROLL_TOP_JS)) as number);
+    if (value === lastValue) {
       stableCount++;
     } else {
       stableCount = 0;
-      lastTop = top;
+      lastValue = value;
     }
   }
 }
@@ -516,7 +532,11 @@ export async function renderPage(
     // backward (e.g. DeepSeek). Each scroll triggers an XHR batch for
     // earlier messages, captured via onJsonResponse.
     if (!IS_SERVERLESS && opts.scrollUp) {
-      await scrollToTopAll(page, opts.scrollUpTimeoutMs ?? 20_000);
+      await scrollToTopAll(
+        page,
+        opts.scrollUpTimeoutMs ?? 20_000,
+        opts.scrollUpProgress,
+      );
     }
 
     if (opts.settleMs) {
