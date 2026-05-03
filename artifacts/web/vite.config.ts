@@ -52,7 +52,8 @@ export default defineConfig({
           (d) =>
             !d.includes("syntax-highlighter") &&
             !d.includes("markdown-") &&
-            !d.includes("/pdf-"),
+            !d.includes("/pdf-") &&
+            !d.includes("/ads-"),
         ),
     },
     minify: "esbuild",
@@ -73,6 +74,7 @@ export default defineConfig({
           if (id.includes("framer-motion")) return "motion";
           if (id.includes("@radix-ui")) return "radix";
           if (id.includes("@tanstack/react-query")) return "react-query";
+          if (id.includes("/components/ads/")) return "ads";
           if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("/scheduler/")) {
             return "react-vendor";
           }

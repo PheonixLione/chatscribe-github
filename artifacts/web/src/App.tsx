@@ -3,8 +3,36 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AdblockGuard } from "@/components/AdblockGuard";
+import { AdblockGuard, useAdblockState } from "@/components/AdblockGuard";
+import { PopunderLoader } from "@/components/ads/PopunderLoader";
 import { Home } from "@/pages/Home";
+
+const InterstitialAd = lazy(() =>
+  import("@/components/ads/InterstitialAd").then((m) => ({
+    default: m.InterstitialAd,
+  })),
+);
+const SocialBar = lazy(() =>
+  import("@/components/ads/SocialBar").then((m) => ({ default: m.SocialBar })),
+);
+
+/** Gate every third-party ad loader on (a) the first detection probe having
+ *  finished and (b) no ad blocker being active. This prevents loading any
+ *  third-party ad scripts while the AdblockOverlay is up, and avoids burning
+ *  network impressions for visitors who will never see the ads. */
+function AdLoaders() {
+  const { ready, blocked } = useAdblockState();
+  if (!ready || blocked) return null;
+  return (
+    <>
+      <PopunderLoader />
+      <Suspense fallback={null}>
+        <InterstitialAd />
+        <SocialBar />
+      </Suspense>
+    </>
+  );
+}
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const HowItWorks = lazy(() => import("@/pages/HowItWorks"));
@@ -92,6 +120,9 @@ function App() {
             <Router />
           </WouterRouter>
           <Toaster />
+          {/* Ad loaders self-gate via useAdblockState — they only mount
+              when the first probe has run AND no blocker is active. */}
+          <AdLoaders />
         </AdblockGuard>
       </TooltipProvider>
     </QueryClientProvider>

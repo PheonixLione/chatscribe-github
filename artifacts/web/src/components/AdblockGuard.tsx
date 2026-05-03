@@ -1,7 +1,36 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Heart, ShieldAlert, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SITE_NAME } from "@/lib/seo";
+
+interface AdblockState {
+  /** True while the very first probe is still in-flight. */
+  checking: boolean;
+  /** True when at least one detection probe has tripped. */
+  blocked: boolean;
+  /** True once the first probe has finished, regardless of result. */
+  ready: boolean;
+}
+
+const AdblockContext = createContext<AdblockState>({
+  checking: true,
+  blocked: false,
+  ready: false,
+});
+
+/** Hook for child components (ad loaders) to gate their own rendering on the
+ *  detection result. Returns `{ checking, blocked, ready }`. */
+export function useAdblockState(): AdblockState {
+  return useContext(AdblockContext);
+}
 
 declare global {
   interface Window {
@@ -170,10 +199,14 @@ export function AdblockGuard({ children }: { children: ReactNode }) {
   }, [runCheck]);
 
   return (
-    <>
+    <AdblockContext.Provider
+      value={{ checking, blocked, ready: firstCheckDone }}
+    >
       {children}
-      {firstCheckDone && blocked && <AdblockOverlay onRetry={runCheck} checking={checking} />}
-    </>
+      {firstCheckDone && blocked && (
+        <AdblockOverlay onRetry={runCheck} checking={checking} />
+      )}
+    </AdblockContext.Provider>
   );
 }
 

@@ -56,6 +56,20 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ## Web app — Ads & ad-blocker enforcement
 
+- **Single source of truth**: `src/config/adNetworks.ts`. To add or remove an ad network, change `enabled: true|false` and fill in the credentials object — nothing else needs to change. Read the "Compatibility notes" comment at the bottom of that file before enabling multiple networks together (AdSense + popunder networks usually violates AdSense ToS).
+- **Supported networks**: Google AdSense (in-content banners), Adsterra (banner / native / social-bar / popunder), PropellerAds (popunder + interstitial), PopAds (popunder), HilltopAds and any other network via the generic `custom.scripts[]` array.
+- **Ad components** live in `src/components/ads/`:
+  - `ScriptInjector` — generic third-party script loader. Supports `waitForUserGesture` to defer injection until first click/scroll/keydown, which is required for popunder networks (browser popup blockers) and is also how we keep the popunder/interstitial off Googlebot's radar (Googlebot doesn't gesture, so it never triggers them — sidesteps Google's "intrusive interstitial" SEO penalty).
+  - `PopunderLoader` — eagerly mounted in `App.tsx`. Loads every enabled popunder network (Adsterra, PropellerAds, PopAds, custom). Tiny module, no perf impact. Browsers enforce one popup per user gesture so only ONE popunder fires regardless of how many networks you enable.
+  - `InterstitialAd` (lazy) — full-screen overlay with countdown gate (default 5s) before the close button appears. Renders an iframe URL or arbitrary HTML snippet from `AD_NETWORKS.interstitial`. Once-per-session via sessionStorage flag. Locks body scroll while open.
+  - `SocialBar` (lazy) — sticky bottom-bar ad (Adsterra "Social Bar" / similar). Loads after first user gesture.
+  - `AdSlot` (refactored) — banner placeholder with a `provider` prop: `"adsense" | "adsterra" | "custom"`. Defaults to whichever banner network is enabled. Adsterra path uses a per-instance `atOptions_<slot>` global to avoid the network's well-known global-collision bug when multiple banners are on one page. Custom path executes injected `<script>` tags inline.
+- **Lazy-loading & perf budget**: `InterstitialAd` and `SocialBar` are loaded via `React.lazy` and excluded from `modulePreload` (vite.config.ts filter excludes `/ads-` chunks). All ad-component code is also bundled into its own `ads` manualChunk so it never bleeds into the entry chunk. The 245 kB gzip Home-route budget is preserved unchanged.
+- **"Unskippable" caveat**: there is no way to make a browser interstitial truly un-closeable — the user can always close the tab. We delay the close button by `interstitial.skipAfterSeconds` (default 5s), which is the industry standard. Longer values cause bounce-rate spikes.
+- **AdblockGuard interaction**: every ad component renders inside the existing `AdblockGuard` wrapper, so when an ad blocker is detected the whole tree (including all ad networks) is hidden behind the emotional overlay. No bypassing needed.
+
+### Original AdblockGuard
+
 - The whole app is wrapped in `AdblockGuard` (`src/components/AdblockGuard.tsx`) which runs five independent detection probes — bait `/ads.js` script, network fetch of `/ads.js`, hidden DOM bait element with classes filter lists target, real `<ins class="adsbygoogle">` tag, and bait image at `/ads/banner.gif`. Probes re-run every 4 s and on window focus.
 - When any probe trips, a full-screen overlay (`AdblockOverlay`) blocks all interaction with an emotional "please disable" message and a retry button. Body scroll is locked while the overlay is up.
 - Bait file `public/ads.js` sets `window.canRunAds = true`. Filter lists block it by default so the flag stays unset for users with blockers.
