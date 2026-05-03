@@ -8,7 +8,23 @@ import { ExtractError, type ChatSource } from "./types";
  * client-side JavaScript (Gemini, DeepSeek) or sit behind a JS-based
  * bot-protection challenge (DeepSeek's AWS WAF). The browser is launched
  * lazily, reused across requests, and torn down on process shutdown.
+ *
+ * Two runtime modes:
+ *
+ * 1. **Long-lived server** (Replit, Render, Railway, local dev). Uses
+ *    the system Chromium found on $PATH. Browser instance is reused
+ *    across requests for the entire process lifetime.
+ *
+ * 2. **Serverless** (Netlify Functions, Vercel — `process.env.NETLIFY`
+ *    or `process.env.VERCEL` set). Uses `@sparticuz/chromium-min`,
+ *    which downloads a Chromium tarball into /tmp on cold start. The
+ *    browser instance is reused across warm invocations within the
+ *    same Lambda container, but cold starts pay a one-time ~3-5s
+ *    download/launch cost.
  */
+
+const IS_SERVERLESS =
+  process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
@@ -67,6 +83,38 @@ async function getBrowser(): Promise<Browser> {
 
   const launch = async (): Promise<Browser> => {
     const puppeteer = await import("puppeteer-core");
+
+    if (IS_SERVERLESS) {
+      // Serverless path: pull the bundled Chromium binary from
+      // @sparticuz/chromium-min. The package itself is ~50 MB; the
+      // ~170 MB Chromium tarball is downloaded lazily into /tmp on
+      // first call within a Lambda container and reused on warm
+      // invocations. CHROMIUM_PACK_URL must point to the matching
+      // pack release (set in netlify.toml [build.environment]).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chromiumMod: any = await import("@sparticuz/chromium-min");
+      const chromium = chromiumMod.default ?? chromiumMod;
+      const packUrl = process.env["CHROMIUM_PACK_URL"];
+      if (!packUrl) {
+        throw new Error(
+          "CHROMIUM_PACK_URL is not set — cannot fetch Chromium binary. " +
+            "Set it in netlify.toml or your platform's environment vars.",
+        );
+      }
+      const executablePath: string = await chromium.executablePath(packUrl);
+      const opts: LaunchOptions = {
+        executablePath,
+        headless: true,
+        // chromium.args is a curated list tuned for Lambda's read-only
+        // filesystem and tight memory ceiling.
+        args: chromium.args as string[],
+        // Sparticuz ships its own viewport defaults — use them.
+        defaultViewport: chromium.defaultViewport,
+      };
+      return await puppeteer.default.launch(opts);
+    }
+
+    // Long-lived server path: system Chromium.
     const opts: LaunchOptions = {
       executablePath: findChromium(),
       headless: true,

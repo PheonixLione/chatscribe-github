@@ -1,0 +1,51 @@
+# Netlify configuration for ChatScribe.
+#
+# What this does:
+# - Installs deps with pnpm (workspace-aware).
+# - Builds only the web artifact (the API ships as a serverless function).
+# - Publishes the SPA from artifacts/web/dist/public.
+# - Routes /api/* to the single serverless function that wraps Express.
+# - Falls back any other path to index.html for client-side wouter routing.
+
+[build]
+  command = "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/web build"
+  publish = "artifacts/web/dist/public"
+  # Functions are bundled from this directory.
+  functions = "netlify/functions"
+
+[build.environment]
+  # Pin Node to match the rest of the workspace (Replit uses Node 24).
+  NODE_VERSION = "20"
+  # Tell @sparticuz/chromium-min where to download the matching Chromium
+  # tarball at cold-start. This URL is pinned to the version that ships
+  # with @sparticuz/chromium-min ^148.0.0 — bump in lockstep when you
+  # upgrade the package. Hosted on GitHub releases (free, stable).
+  CHROMIUM_PACK_URL = "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar"
+  # Forces our own headless module to take the Netlify branch even when
+  # NETLIFY isn't yet set during the build phase.
+  NETLIFY = "true"
+
+[functions]
+  # Use esbuild so TypeScript sources are compiled and the workspace
+  # symlinks (@workspace/api-zod, etc.) get resolved transitively.
+  node_bundler = "esbuild"
+  # Chromium binary lives outside node_modules at runtime — chromium-min
+  # downloads it on demand into /tmp, so we don't need included_files
+  # for it. We do bundle puppeteer-core because it's pure JS.
+  external_node_modules = []
+
+# Same-origin API: every /api/* request is served by the catch-all
+# function. status=200 makes this a rewrite (not a redirect), so the
+# browser keeps the original URL and CORS isn't involved.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback — any path not matched above (and not a real static file)
+# serves index.html so the React router can take over.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

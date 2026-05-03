@@ -1,0 +1,21 @@
+# Replit-only artifacts — never deploy these to Netlify.
+artifacts/mockup-sandbox/
+attached_assets/
+.local/
+.config/
+.upm/
+.replit
+replit.nix
+replit.md
+
+# Test fixtures (large HTML files, not needed at runtime)
+artifacts/api-server/src/lib/extractors/__fixtures__/
+artifacts/api-server/src/lib/extractors/__tests__/
+
+# Build outputs — Netlify rebuilds from source
+artifacts/api-server/dist/
+artifacts/web/dist/
+
+# Local probes / dev scripts
+artifacts/api-server/probe.mjs
+artifacts/api-server/probe2.mjs

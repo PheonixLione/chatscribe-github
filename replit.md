@@ -76,3 +76,20 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - `AdSlot` component (`src/components/AdSlot.tsx`) is the placeholder for ad units. Currently rendered on the Home page as `home-top`, `home-mid`, and `result-top` (above the extracted conversation).
 - **Before launch**: replace `ca-pub-XXXXXXXXXXXXXXXX` in two places — the `<script async src="...adsbygoogle.js?client=...">` tag in `index.html`, and the `data-ad-client` attribute inside `AdSlot.tsx` — with your real AdSense publisher ID. Then create individual ad units in AdSense and pass each unit's slot ID to the `<AdSlot slot="..." />` instances.
 - Ad-blocker detection is a layered best-effort. Sophisticated users with custom uBlock filters can still bypass any in-browser detector — there is no perfect solution. The combined probes catch all common blockers (uBlock Origin, AdBlock Plus, Brave Shields, AdGuard, Ghostery) at default settings.
+
+## Deployment — Replit vs Netlify (free tier)
+
+The app supports two deployment paths from the same codebase, branched at runtime via `process.env.NETLIFY`:
+
+- **Replit Deploy** (default, recommended). Long-lived Express server. System Chromium found via `$PATH`. Full pino-http logging, in-memory rate limiter (20 req/min/IP). All extractors (ChatGPT, Claude, Grok, Perplexity, Gemini, DeepSeek) reliable.
+- **Netlify Functions** (free tier). Express app wrapped via `serverless-http` at `netlify/functions/api.mts`, mounted at `/api/*` via `netlify.toml` rewrite. Chromium provided by `@sparticuz/chromium-min` (binary downloaded into `/tmp` on cold start from `CHROMIUM_PACK_URL`). Pino-http and rate limiter disabled (Lambda-incompatible). HTTP-only extractors (ChatGPT/Claude/Grok/Perplexity) reliable; Gemini/DeepSeek work but cold-start sensitive due to 10-second sync function timeout. See `DEPLOY-NETLIFY.md` for full setup, limits, and tradeoffs.
+
+Files involved:
+- `netlify.toml` — build/publish/functions/redirects + `CHROMIUM_PACK_URL` env var
+- `.netlifyignore` — excludes mockup sandbox, fixtures, replit-specific files
+- `netlify/functions/api.mts` — `serverless-http` wrapper around the Express app
+- `artifacts/api-server/src/lib/extractors/headless.ts` — branches on `IS_SERVERLESS` to choose chromium-min vs system Chromium
+- `artifacts/api-server/src/app.ts` — branches on `IS_SERVERLESS` to skip pino-http worker thread
+- `artifacts/api-server/src/routes/extract.ts` — branches on `IS_SERVERLESS` to disable in-memory rate limiter
+
+When upgrading `@sparticuz/chromium-min`, also bump `CHROMIUM_PACK_URL` in `netlify.toml` to the matching pack release (https://github.com/Sparticuz/chromium/releases) — the package version and binary tarball must agree.
