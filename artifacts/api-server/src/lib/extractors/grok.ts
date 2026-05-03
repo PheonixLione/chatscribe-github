@@ -60,13 +60,23 @@ export const grok: SourceDescriptor = {
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        settleMs: 1500,
+        settleMs: 2500,
         waitFor: {
+          // Wait until any conversation content is hydrated. We probe two
+          // independent signals because Grok occasionally delays
+          // `data-testid` attribute hydration on shares that include
+          // images: (1) a `.response-content-markdown` body has real
+          // text, or (2) any `[data-testid="user-message"]` /
+          // `[data-testid="assistant-message"]` element has real text.
+          // Either is sufficient for the cheerio parser downstream.
           fn: `
-            var ast = document.querySelectorAll('[data-testid="assistant-message"]');
-            if (ast.length === 0) return false;
-            for (var i = 0; i < ast.length; i++) {
-              if ((ast[i].textContent || "").trim().length > 5) return true;
+            var md = document.querySelectorAll('.response-content-markdown');
+            for (var i = 0; i < md.length; i++) {
+              if ((md[i].textContent || "").trim().length > 5) return true;
+            }
+            var bubbles = document.querySelectorAll('[data-testid="user-message"], [data-testid="assistant-message"]');
+            for (var j = 0; j < bubbles.length; j++) {
+              if ((bubbles[j].textContent || "").trim().length > 5) return true;
             }
             return false;
           `,
