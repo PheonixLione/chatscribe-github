@@ -1,4 +1,4 @@
-# Replit-only artifacts — never deploy these to Netlify.
+# Replit-only artifacts — never deploy these.
 artifacts/mockup-sandbox/
 attached_assets/
 .local/
@@ -6,18 +6,18 @@ attached_assets/
 .upm/
 .replit
 replit.nix
-replit.md
 
-# Vercel-specific artifacts (this is a Netlify deploy)
-api/
-vercel.json
-.vercelignore
+# Netlify-specific artifacts (this is a Vercel deploy)
+netlify/
+netlify.toml
+.netlifyignore
+DEPLOY-NETLIFY.md
 
 # Test fixtures (large HTML files, not needed at runtime)
 artifacts/api-server/src/lib/extractors/__fixtures__/
 artifacts/api-server/src/lib/extractors/__tests__/
 
-# Build outputs — Netlify rebuilds from source
+# Build outputs — Vercel rebuilds from source
 artifacts/api-server/dist/
 artifacts/web/dist/
 

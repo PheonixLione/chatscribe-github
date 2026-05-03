@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": "Vercel deployment config. The user redirected this project to Netlify (see netlify.toml + DEPLOY-NETLIFY.md), but Vercel is also supported because the runtime branching in headless.ts/app.ts/extract.ts checks both process.env.NETLIFY and process.env.VERCEL. Choose ONE platform per project — do not deploy both at the same domain.",
+  "buildCommand": "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/web build",
+  "outputDirectory": "artifacts/web/dist/public",
+  "framework": null,
+  "installCommand": "echo 'install handled in buildCommand'",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!_next|assets|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
