@@ -113,7 +113,7 @@ export function GuideLayout({
             return (
               <span key={c.path} className="flex items-center gap-1">
                 {last ? (
-                  <span className="text-white/80 truncate max-w-[200px]">
+                  <span className="text-foreground/80 truncate max-w-[200px]">
                     {c.name}
                   </span>
                 ) : (
@@ -135,7 +135,7 @@ export function GuideLayout({
           <p className="text-xs font-mono uppercase tracking-wider text-primary">
             {eyebrow}
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             {heading}
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -152,7 +152,7 @@ export function GuideLayout({
             <Lightbulb className="w-3.5 h-3.5" />
             Quick answer
           </p>
-          <p className="text-white leading-relaxed">{tldr}</p>
+          <p className="text-foreground leading-relaxed">{tldr}</p>
         </aside>
 
         {/* Steps */}
@@ -160,12 +160,12 @@ export function GuideLayout({
           aria-labelledby="steps-heading"
           className="
             prose prose-invert max-w-none
-            prose-headings:text-white prose-headings:tracking-tight
+            prose-headings:text-foreground prose-headings:tracking-tight
             prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
             prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3
             prose-p:text-muted-foreground prose-p:leading-relaxed
             prose-li:text-muted-foreground
-            prose-strong:text-white
+            prose-strong:text-foreground
             prose-a:text-primary hover:prose-a:underline
             prose-code:text-primary prose-code:before:content-none prose-code:after:content-none
           "
@@ -188,13 +188,13 @@ export function GuideLayout({
                 </span>
                 <div className="space-y-2 min-w-0">
                   <h3
-                    className="text-lg font-semibold text-white m-0"
+                    className="text-lg font-semibold text-foreground m-0"
                     itemProp="name"
                   >
                     {s.name}
                   </h3>
                   <div
-                    className="text-muted-foreground leading-relaxed [&_a]:text-primary [&_a:hover]:underline [&_strong]:text-white [&_code]:text-primary [&_code]:font-mono [&_code]:text-sm [&_p]:my-2"
+                    className="text-muted-foreground leading-relaxed [&_a]:text-primary [&_a:hover]:underline [&_strong]:text-foreground [&_code]:text-primary [&_code]:font-mono [&_code]:text-sm [&_p]:my-2"
                     itemProp="text"
                   >
                     {s.detail ?? <p>{s.text}</p>}
@@ -215,7 +215,7 @@ export function GuideLayout({
                 <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
                   Part of a bigger guide
                 </p>
-                <p className="text-white font-medium">{pillar.title}</p>
+                <p className="text-foreground font-medium">{pillar.title}</p>
               </div>
               <Link
                 href={pillar.href}
@@ -231,7 +231,7 @@ export function GuideLayout({
             <section aria-labelledby="faq-heading" className="not-prose mt-14">
               <h2
                 id="faq-heading"
-                className="text-2xl font-bold text-white tracking-tight mb-2 flex items-center gap-2"
+                className="text-2xl font-bold text-foreground tracking-tight mb-2 flex items-center gap-2"
               >
                 <HelpCircle className="w-5 h-5 text-primary" />
                 Frequently asked
@@ -239,7 +239,7 @@ export function GuideLayout({
               <dl className="divide-y divide-border/60 border-y border-border/60">
                 {faqs.map((f, i) => (
                   <div key={i} className="py-5">
-                    <dt className="text-white font-semibold mb-2">{f.q}</dt>
+                    <dt className="text-foreground font-semibold mb-2">{f.q}</dt>
                     <dd className="text-muted-foreground leading-relaxed">
                       {f.a}
                     </dd>
@@ -257,7 +257,7 @@ export function GuideLayout({
             >
               <h2
                 id="related-heading"
-                className="text-2xl font-bold text-white tracking-tight mb-5"
+                className="text-2xl font-bold text-foreground tracking-tight mb-5"
               >
                 Related guides
               </h2>
@@ -268,7 +268,7 @@ export function GuideLayout({
                       href={r.href}
                       className="block p-4 rounded-lg border border-border/60 bg-card/40 hover:border-primary/40 hover:bg-card/80 transition-colors"
                     >
-                      <p className="text-white font-medium mb-1">{r.title}</p>
+                      <p className="text-foreground font-medium mb-1">{r.title}</p>
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {r.description}
                       </p>
@@ -281,7 +281,7 @@ export function GuideLayout({
 
           {/* CTA */}
           <aside className="not-prose mt-14 p-6 rounded-xl border border-primary/40 bg-primary/5 text-center">
-            <p className="text-xl font-bold text-white mb-2">
+            <p className="text-xl font-bold text-foreground mb-2">
               Ready to extract a chat?
             </p>
             <p className="text-sm text-muted-foreground mb-4">

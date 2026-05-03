@@ -80,7 +80,7 @@ export default function GuidesIndex() {
           <p className="text-xs font-mono uppercase tracking-wider text-primary">
             LIBRARY
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Guides for saving AI conversations
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -98,7 +98,7 @@ export default function GuidesIndex() {
             <BookOpen className="w-3.5 h-3.5" />
             Start here · Pillar guide
           </p>
-          <h2 className="text-2xl font-bold text-white tracking-tight mb-2 group-hover:text-primary transition-colors">
+          <h2 className="text-2xl font-bold text-foreground tracking-tight mb-2 group-hover:text-primary transition-colors">
             {PILLAR.title}
           </h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
@@ -121,7 +121,7 @@ export default function GuidesIndex() {
                 href={g.href}
                 className="block p-5 rounded-xl border border-border/60 bg-card/40 hover:border-primary/40 hover:bg-card/80 transition-colors h-full"
               >
-                <h3 className="text-white font-semibold mb-2">{g.title}</h3>
+                <h3 className="text-foreground font-semibold mb-2">{g.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {g.description}
                 </p>

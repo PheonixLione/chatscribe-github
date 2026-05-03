@@ -117,7 +117,7 @@ export default function SaveAiConversations() {
             return (
               <span key={c.path} className="flex items-center gap-1">
                 {last ? (
-                  <span className="text-white/80 truncate max-w-[260px]">
+                  <span className="text-foreground/80 truncate max-w-[260px]">
                     {c.name}
                   </span>
                 ) : (
@@ -139,7 +139,7 @@ export default function SaveAiConversations() {
             <BookOpen className="w-3.5 h-3.5" />
             PILLAR GUIDE
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             How to save AI conversations
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -158,7 +158,7 @@ export default function SaveAiConversations() {
             <Lightbulb className="w-3.5 h-3.5" />
             Quick answer
           </p>
-          <p className="text-white leading-relaxed">
+          <p className="text-foreground leading-relaxed">
             The fastest way to save any AI conversation: use the platform's
             built-in <strong>Share</strong> button to create a public link,
             paste that link into <strong>{SITE_NAME}</strong>, and download
@@ -171,12 +171,12 @@ export default function SaveAiConversations() {
         <article
           className="
             prose prose-invert max-w-none
-            prose-headings:text-white prose-headings:tracking-tight
+            prose-headings:text-foreground prose-headings:tracking-tight
             prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
             prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3
             prose-p:text-muted-foreground prose-p:leading-relaxed
             prose-li:text-muted-foreground
-            prose-strong:text-white
+            prose-strong:text-foreground
             prose-a:text-primary hover:prose-a:underline
             prose-code:text-primary prose-code:before:content-none prose-code:after:content-none
           "
@@ -317,7 +317,7 @@ export default function SaveAiConversations() {
                 href={s.href}
                 className="block p-4 rounded-lg border border-border/60 bg-card/40 hover:border-primary/40 hover:bg-card/80 transition-colors h-full"
               >
-                <p className="text-white font-medium mb-1">{s.title}</p>
+                <p className="text-foreground font-medium mb-1">{s.title}</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {s.description}
                 </p>
@@ -329,11 +329,11 @@ export default function SaveAiConversations() {
         <article
           className="
             prose prose-invert max-w-none mt-12
-            prose-headings:text-white prose-headings:tracking-tight
+            prose-headings:text-foreground prose-headings:tracking-tight
             prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
             prose-p:text-muted-foreground prose-p:leading-relaxed
             prose-li:text-muted-foreground
-            prose-strong:text-white
+            prose-strong:text-foreground
             prose-a:text-primary hover:prose-a:underline
           "
         >
@@ -380,14 +380,14 @@ export default function SaveAiConversations() {
         <section aria-labelledby="faq-heading" className="mt-14">
           <h2
             id="faq-heading"
-            className="text-2xl font-bold text-white tracking-tight mb-2"
+            className="text-2xl font-bold text-foreground tracking-tight mb-2"
           >
             Frequently asked
           </h2>
           <dl className="divide-y divide-border/60 border-y border-border/60">
             {FAQS.map((f, i) => (
               <div key={i} className="py-5">
-                <dt className="text-white font-semibold mb-2">{f.q}</dt>
+                <dt className="text-foreground font-semibold mb-2">{f.q}</dt>
                 <dd className="text-muted-foreground leading-relaxed">
                   {f.a}
                 </dd>
@@ -398,7 +398,7 @@ export default function SaveAiConversations() {
 
         {/* CTA */}
         <aside className="mt-14 p-6 rounded-xl border border-primary/40 bg-primary/5 text-center">
-          <p className="text-xl font-bold text-white mb-2">
+          <p className="text-xl font-bold text-foreground mb-2">
             Save your first conversation now
           </p>
           <p className="text-sm text-muted-foreground mb-4">

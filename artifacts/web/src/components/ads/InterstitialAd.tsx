@@ -95,14 +95,14 @@ export function InterstitialAd() {
               type="button"
               onClick={() => setArmed(false)}
               aria-label="Close ad"
-              className="w-9 h-9 rounded-full bg-background/90 hover:bg-background text-white flex items-center justify-center transition-colors shadow-lg"
+              className="w-9 h-9 rounded-full bg-background/90 hover:bg-background text-foreground flex items-center justify-center transition-colors shadow-lg"
             >
               <X className="w-4 h-4" />
             </button>
           ) : (
             <div
               aria-live="polite"
-              className="px-3 h-9 rounded-full bg-background/90 text-white text-xs font-mono flex items-center justify-center shadow-lg select-none"
+              className="px-3 h-9 rounded-full bg-background/90 text-foreground text-xs font-mono flex items-center justify-center shadow-lg select-none"
             >
               Skip in {secondsLeft}s
             </div>

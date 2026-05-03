@@ -201,7 +201,7 @@ export function Home() {
             >
               <section className="max-w-2xl mx-auto space-y-10">
                 <div className="space-y-4 text-center">
-                  <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
+                  <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
                     Extract any AI chat share link
                   </h1>
                   <p className="text-lg text-muted-foreground">
@@ -281,7 +281,7 @@ export function Home() {
               {/* SEO content: features grid */}
               <section aria-labelledby="features-heading" className="border-t border-border/60 pt-16">
                 <div className="text-center max-w-2xl mx-auto mb-10">
-                  <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  <h2 id="features-heading" className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                     Why use Chat Extractor?
                   </h2>
                   <p className="mt-3 text-muted-foreground">
@@ -296,7 +296,7 @@ export function Home() {
                     >
                       <div className="flex items-center gap-2 text-primary">
                         <Icon className="w-4 h-4" />
-                        <h3 className="font-semibold text-white text-sm">{title}</h3>
+                        <h3 className="font-semibold text-foreground text-sm">{title}</h3>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
                         {body}
@@ -309,7 +309,7 @@ export function Home() {
               {/* SEO content: how it works */}
               <section aria-labelledby="how-heading" className="border-t border-border/60 pt-16">
                 <div className="text-center max-w-2xl mx-auto mb-10">
-                  <h2 id="how-heading" className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  <h2 id="how-heading" className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                     How it works
                   </h2>
                   <p className="mt-3 text-muted-foreground">
@@ -339,7 +339,7 @@ export function Home() {
                       className="bg-card/60 border border-border/60 rounded-xl p-5 space-y-2"
                     >
                       <div className="text-xs font-mono text-primary">{s.n}</div>
-                      <h3 className="font-semibold text-white">{s.h}</h3>
+                      <h3 className="font-semibold text-foreground">{s.h}</h3>
                       <p className="text-muted-foreground leading-relaxed">{s.p}</p>
                     </li>
                   ))}
@@ -359,7 +359,7 @@ export function Home() {
               {/* SEO content: FAQ teaser */}
               <section aria-labelledby="faq-heading" className="border-t border-border/60 pt-16">
                 <div className="text-center max-w-2xl mx-auto mb-10">
-                  <h2 id="faq-heading" className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  <h2 id="faq-heading" className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                     Common questions
                   </h2>
                 </div>
@@ -379,7 +379,7 @@ export function Home() {
                     },
                   ].map((f) => (
                     <div key={f.q}>
-                      <dt className="font-semibold text-white flex items-start gap-2">
+                      <dt className="font-semibold text-foreground flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-primary mt-1 shrink-0" />
                         <span>{f.q}</span>
                       </dt>
@@ -414,7 +414,7 @@ export function Home() {
                 <Loader2 className="w-12 h-12 text-primary animate-spin relative" />
               </div>
               <div className="text-center space-y-2">
-                <h3 className="text-xl font-semibold text-white">Extracting conversation...</h3>
+                <h3 className="text-xl font-semibold text-foreground">Extracting conversation...</h3>
                 <p className="text-muted-foreground font-mono text-sm">
                   Fetching and parsing data from the source
                 </p>
@@ -445,7 +445,7 @@ export function Home() {
                       {conversation.sourceLabel}
                     </span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                     {conversation.title || "Extracted Conversation"}
                   </h2>
                   <a

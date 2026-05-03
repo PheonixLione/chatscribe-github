@@ -20,7 +20,7 @@ export function ContentPage({ eyebrow, title, intro, children }: ContentPageProp
             {eyebrow}
           </p>
         )}
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
           {title}
         </h1>
         {intro && (
@@ -30,12 +30,12 @@ export function ContentPage({ eyebrow, title, intro, children }: ContentPageProp
       <article
         className="
           prose prose-invert max-w-none
-          prose-headings:text-white prose-headings:tracking-tight
+          prose-headings:text-foreground prose-headings:tracking-tight
           prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-4
           prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3
           prose-p:text-muted-foreground prose-p:leading-relaxed
           prose-li:text-muted-foreground
-          prose-strong:text-white
+          prose-strong:text-foreground
           prose-a:text-primary hover:prose-a:underline
           prose-code:text-primary prose-code:before:content-none prose-code:after:content-none
         "

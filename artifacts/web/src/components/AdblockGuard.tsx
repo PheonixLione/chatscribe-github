@@ -234,22 +234,22 @@ function AdblockOverlay({
             </div>
             <h2
               id="adblock-title"
-              className="text-2xl font-bold text-white tracking-tight"
+              className="text-2xl font-bold text-foreground tracking-tight"
             >
               Please disable your ad blocker
             </h2>
           </div>
 
           <p className="text-muted-foreground leading-relaxed">
-            <strong className="text-white">{SITE_NAME}</strong> is, and always
-            will be, <strong className="text-white">100% free</strong>. No
+            <strong className="text-foreground">{SITE_NAME}</strong> is, and always
+            will be, <strong className="text-foreground">100% free</strong>. No
             signup. No paywall. No premium tier.
           </p>
 
           <p className="text-muted-foreground leading-relaxed">
             We pay for the servers, the bandwidth, and the constant parser
             updates that keep this tool working{" "}
-            <strong className="text-white">entirely through ads</strong>. When
+            <strong className="text-foreground">entirely through ads</strong>. When
             you block them, you quietly make it impossible for us to keep this
             free for the next person who needs it.
           </p>
@@ -262,14 +262,14 @@ function AdblockOverlay({
           </p>
 
           <div className="bg-secondary/40 border border-border/60 rounded-lg p-4 text-sm space-y-2">
-            <p className="font-semibold text-white flex items-center gap-2">
+            <p className="font-semibold text-foreground flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               How to help in 10 seconds
             </p>
             <ul className="space-y-1.5 text-muted-foreground list-disc list-inside marker:text-primary">
               <li>
                 Click your ad blocker icon and choose{" "}
-                <span className="text-white font-medium">
+                <span className="text-foreground font-medium">
                   "Pause on this site"
                 </span>
               </li>
