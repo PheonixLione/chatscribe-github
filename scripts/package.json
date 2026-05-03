@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "verify-netlify-bundle": "tsx ./src/verify-netlify-bundle.mts",
+    "build-netlify-function": "tsx ./src/build-netlify-function.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

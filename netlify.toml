@@ -8,10 +8,16 @@
 # - Falls back any other path to index.html for client-side wouter routing.
 
 [build]
-  command = "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/web build"
+  # We pre-bundle the Netlify function ourselves with esbuild because
+  # for ESM .mts entries Netlify's zip-it-and-ship-it falls back to NFT
+  # (file inclusion only), which doesn't follow pnpm workspace symlinks
+  # → cold-start crashes with `Cannot find package 'express'`. Our own
+  # esbuild step inlines every dep into a single ~7.6 MB .mjs.
+  command = "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/web build && pnpm --filter @workspace/scripts run build-netlify-function"
   publish = "artifacts/web/dist/public"
-  # Functions are bundled from this directory.
-  functions = "netlify/functions"
+  # Functions are zipped from this directory. The .mjs inside is the
+  # already-bundled output; package.json beside it just sets type:module.
+  functions = "netlify/functions-built"
 
 [build.environment]
   # Node 22+ is required: @sparticuz/chromium-min v148 declares

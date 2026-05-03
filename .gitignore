@@ -51,3 +51,8 @@ Thumbs.db
 # Local dev env files
 .env.dev
 .env.local
+
+# Pre-bundled Netlify function output (regenerated at deploy time).
+# Keep netlify/functions-built/package.json tracked — it sets ESM mode.
+netlify/functions-built/api.mjs
+netlify/functions-built/*.map
