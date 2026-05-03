@@ -89,7 +89,7 @@ Files involved:
 - `netlify.toml` / `vercel.json` — per-platform build, publish, function, rewrites
 - `.netlifyignore` / `.vercelignore` — each excludes the other's config + Replit-only files
 - `netlify/functions/api.mts` — Netlify entry, `serverless-http` wrapper
-- `api/index.ts` — Vercel entry, re-exports the Express app directly
+- `api/[...all].ts` — Vercel entry (catch-all dynamic route), re-exports the Express app directly so `req.url` keeps the original `/api/*` path for Express's mount to match
 - `artifacts/api-server/src/lib/extractors/headless.ts` — branches on `IS_SERVERLESS` to choose chromium-min vs system Chromium; throws `headless_unavailable` (HTTP 503) on serverless launch/timeout failures so the frontend can prompt a retry
 - `artifacts/api-server/src/lib/extractors/types.ts` + `lib/api-spec/openapi.yaml` — `headless_unavailable` is a first-class error code in the OpenAPI spec; regenerate `lib/api-zod` via `pnpm --filter @workspace/api-spec run codegen` after any schema change
 - `artifacts/api-server/src/app.ts` — branches on `IS_SERVERLESS` to skip pino-http worker thread

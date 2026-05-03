@@ -22,15 +22,17 @@ default in `headless.ts` or override `CHROMIUM_PACK_URL` in
 
 ```
 Browser → https://your-site.vercel.app/api/extract
-       → vercel.json rewrite → /api/index
-       → api/index.ts (re-exports the Express app)
+       → Vercel auto-routes /api/* to api/[...all].ts (catch-all)
+       → api/[...all].ts re-exports the Express app
        → Express router matches /api/extract
        → extractor → response
 ```
 
-Vercel rewrites preserve the original URL on the incoming request, so
-Express's `/api` mount still sees `/api/extract` even though the
-function bundle lives at `api/index.ts`. No path-rewriting code needed.
+The catch-all dynamic route (`api/[...all].ts`) means Vercel sends every
+`/api/*` request to a single function with the original URL preserved
+on `req.url`. Express's `/api` mount then matches its own routes
+without any path rewriting — no `vercel.json` rewrite needed for the
+API surface, only the SPA fallback for client-side routes.
 
 ## Reliability matrix
 
