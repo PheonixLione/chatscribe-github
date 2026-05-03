@@ -112,13 +112,26 @@ async function getBrowser(): Promise<Browser> {
       const packUrl =
         process.env["CHROMIUM_PACK_URL"] ??
         "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar";
-      const executablePath = await chromium.executablePath(packUrl);
-      const opts: LaunchOptions = {
-        executablePath,
-        headless: true,
-        args: chromium.args,
-      };
-      return await puppeteer.default.launch(opts);
+      // Race the cold-start binary fetch + browser launch against an
+      // internal budget so we can throw `headless_unavailable` before
+      // the platform's 10s hard kill.
+      return await Promise.race([
+        (async () => {
+          const executablePath = await chromium.executablePath(packUrl);
+          const opts: LaunchOptions = {
+            executablePath,
+            headless: true,
+            args: chromium.args,
+          };
+          return await puppeteer.default.launch(opts);
+        })(),
+        new Promise<Browser>((_resolve, reject) =>
+          setTimeout(
+            () => reject(new Error("serverless chromium launch budget exceeded")),
+            SERVERLESS_LAUNCH_BUDGET_MS,
+          ),
+        ),
+      ]);
     }
 
     // Long-lived server path: system Chromium.
@@ -190,6 +203,7 @@ export interface RenderResult {
 // Clamp render budget below the 10s serverless function timeout so app
 // errors surface before the platform kills the invocation.
 const SERVERLESS_RENDER_BUDGET_MS = 7_000;
+const SERVERLESS_LAUNCH_BUDGET_MS = 6_000;
 
 export async function renderPage(
   url: string,
