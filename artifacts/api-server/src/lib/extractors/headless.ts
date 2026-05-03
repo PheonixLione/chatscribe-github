@@ -221,6 +221,13 @@ export interface RenderOptions {
    */
   scrollToLoad?: boolean;
   scrollTimeoutMs?: number;
+  /**
+   * Called for every JSON response the page receives. Use this to intercept
+   * API responses that contain the full conversation data before the DOM is
+   * rendered (avoids virtual-list truncation entirely). Only fires for
+   * responses whose content-type contains "json".
+   */
+  onJsonResponse?: (url: string, body: unknown) => void;
 }
 
 export interface RenderResult {
@@ -340,6 +347,17 @@ export async function renderPage(
         req.continue().catch(() => {});
       }
     });
+
+    // Intercept JSON API responses so callers can capture conversation data
+    // before the DOM is rendered (bypasses virtual-list truncation).
+    if (opts.onJsonResponse) {
+      const cb = opts.onJsonResponse;
+      page.on("response", (res) => {
+        const ct = res.headers()["content-type"] ?? "";
+        if (!ct.includes("json")) return;
+        res.json().then((data: unknown) => cb(res.url(), data)).catch(() => {});
+      });
+    }
 
     let response;
     try {

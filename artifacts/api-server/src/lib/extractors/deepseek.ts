@@ -57,13 +57,30 @@ export const deepseek: SourceDescriptor = {
     }
 
     // 2) Headless render. The browser solves the WAF challenge JS, then
-    //    React hydrates the conversation. We wait for `.ds-markdown` (the
-    //    stable assistant-content class) to appear with non-empty text.
+    //    React hydrates the conversation. We intercept every JSON response
+    //    (DeepSeek fetches the full conversation via XHR after React boots)
+    //    so we can capture the complete message list before any virtual-list
+    //    DOM windowing occurs. Scroll is disabled: DeepSeek uses a virtual
+    //    list that removes early messages when scrolled down, so
+    //    scroll-to-bottom would give us the END only.
     try {
+      let interceptedConv: Conversation | null = null;
+
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
         settleMs: 1500,
+        scrollToLoad: false,
+        onJsonResponse: (_respUrl, body) => {
+          const conv = conversationFromState(body, url.toString());
+          if (
+            conv &&
+            (!interceptedConv ||
+              conv.messages.length > interceptedConv.messages.length)
+          ) {
+            interceptedConv = conv;
+          }
+        },
         waitFor: {
           fn: `
             if (document.title === "" && document.querySelector("#challenge-container")) {
@@ -77,6 +94,10 @@ export const deepseek: SourceDescriptor = {
           `,
         },
       });
+
+      // XHR-captured data is authoritative — complete JSON before DOM windowing.
+      if (interceptedConv) return interceptedConv;
+
       const conv = parseHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
