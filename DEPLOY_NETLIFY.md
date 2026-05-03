@@ -46,6 +46,21 @@ the friendly `headless_unavailable` error (HTTP 503) instead of a
 generic 500 — **just retry once and the now-warm container will
 succeed**. The frontend already handles this gracefully.
 
+## Verifying the function bundle locally
+
+Netlify bundles `netlify/functions/api.mts` with esbuild during deploy.
+A local script reproduces that step so you catch broken bundles
+(unresolved imports, missing workspace packages, oversized output)
+before pushing:
+
+```sh
+pnpm --filter @workspace/scripts run verify-netlify-bundle
+```
+
+It runs as part of the root `pnpm build`, fails on any esbuild error,
+and rejects bundles larger than 40 MB (safety margin under Netlify's
+50 MB function size limit).
+
 ## Upgrading Chromium
 
 `netlify.toml` pins `CHROMIUM_PACK_URL` to the exact tarball that
