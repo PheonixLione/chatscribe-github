@@ -170632,9 +170632,8 @@ var handler = (0, import_serverless_http.default)(app_default, {
     req.netlifyContext = context2;
   }
 });
-var api_default = handler;
 export {
-  api_default as default
+  handler
 };
 /*! Bundled license information:
 

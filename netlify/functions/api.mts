@@ -12,11 +12,12 @@ process.on("uncaughtException", (err) => {
   process.stderr.write(`[netlify-api] uncaughtException: ${err.message}\n${err.stack}\n`);
 });
 
-const handler = serverless(app, {
+// NAMED `handler` export — Netlify's bootstrap looks up `module.handler`,
+// not `module.default`. Using only `export default` previously caused
+// every invocation to crash with `TypeError: y.handler is not a function`.
+export const handler = serverless(app, {
   binary: false,
   request: (req: { netlifyContext?: unknown }, _event: unknown, context: unknown) => {
     req.netlifyContext = context;
   },
 });
-
-export default handler;
