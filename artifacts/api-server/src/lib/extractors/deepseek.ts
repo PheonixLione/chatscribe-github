@@ -325,37 +325,61 @@ function conversationFromState(
   originalUrl: string,
 ): Conversation | null {
   // Walk every object in the state tree and inspect each of its array
-  // fields, looking for the longest array whose entries match
-  // `{role: "user"|"assistant"|"system", content: string}`. This handles
-  // both `state.share.messages` (current shape) and any future renames.
+  // fields, looking for the longest array that contains chat messages.
+  // We skip (not reject) items with unknown roles (e.g. DeepSeek's
+  // "thinking" / "tool" / "function" entries) so a single non-standard
+  // message doesn't cause the entire conversation array to be discarded.
+  // We also accept array-typed content (OpenAI-style content blocks) by
+  // joining the text parts.
   let bestMessages: ChatMessage[] | null = null;
   walkAll(state, (node) => {
     for (const key of Object.keys(node)) {
       const arr = node[key];
       if (!Array.isArray(arr) || arr.length === 0) continue;
       const candidate: ChatMessage[] = [];
-      let valid = true;
+      let seenChatItem = false;
       for (const item of arr) {
-        if (!isObject(item)) {
-          valid = false;
-          break;
-        }
+        if (!isObject(item)) continue; // skip non-objects instead of rejecting array
         const role = item.role;
-        const content = item.content;
-        if (
-          (role !== "user" && role !== "assistant" && role !== "system") ||
-          typeof content !== "string"
-        ) {
-          valid = false;
-          break;
+        if (typeof role !== "string") continue;
+
+        // Normalise role variants across providers.
+        const normRole: "user" | "assistant" | "system" | null =
+          role === "user" || role === "human"
+            ? "user"
+            : role === "assistant" || role === "model"
+              ? "assistant"
+              : role === "system"
+                ? "system"
+                : null; // thinking / tool / function / etc — skip silently
+        if (!normRole) continue;
+
+        // content may be a plain string or an array of content blocks.
+        const rawContent = item.content;
+        let content = "";
+        if (typeof rawContent === "string") {
+          content = rawContent.trim();
+        } else if (Array.isArray(rawContent)) {
+          content = rawContent
+            .map((c) => {
+              if (typeof c === "string") return c;
+              if (isObject(c)) {
+                const t = c["text"] ?? c["content"] ?? "";
+                return typeof t === "string" ? t : "";
+              }
+              return "";
+            })
+            .filter(Boolean)
+            .join("\n\n")
+            .trim();
         }
-        candidate.push({
-          role: role as "user" | "assistant" | "system",
-          content,
-        });
+        if (!content) continue;
+
+        seenChatItem = true;
+        candidate.push({ role: normRole, content });
       }
       if (
-        valid &&
+        seenChatItem &&
         candidate.length &&
         (!bestMessages || candidate.length > bestMessages.length)
       ) {
