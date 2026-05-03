@@ -12,6 +12,7 @@ netlify/
 netlify.toml
 .netlifyignore
 DEPLOY-NETLIFY.md
+# DEPLOY-VERCEL.md is intentionally NOT ignored — it documents this deploy.
 
 # Test fixtures (large HTML files, not needed at runtime)
 artifacts/api-server/src/lib/extractors/__fixtures__/

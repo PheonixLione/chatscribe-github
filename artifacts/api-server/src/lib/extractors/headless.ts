@@ -115,13 +115,14 @@ async function getBrowser(): Promise<Browser> {
       // invocations. CHROMIUM_PACK_URL must point to the matching
       // pack release (set in netlify.toml [build.environment]).
       const chromium = await loadChromiumMin();
-      const packUrl = process.env["CHROMIUM_PACK_URL"];
-      if (!packUrl) {
-        throw new Error(
-          "CHROMIUM_PACK_URL is not set — cannot fetch Chromium binary. " +
-            "Set it in netlify.toml or your platform's environment vars.",
-        );
-      }
+      // Pinned default for the Sparticuz pack that matches
+      // @sparticuz/chromium-min ^148.0.0. Used when no environment
+      // override is set — keeps Vercel deploys working out of the box
+      // (Vercel doesn't read netlify.toml). Bump alongside the package
+      // version: https://github.com/Sparticuz/chromium/releases
+      const packUrl =
+        process.env["CHROMIUM_PACK_URL"] ??
+        "https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar";
       const executablePath = await chromium.executablePath(packUrl);
       const opts: LaunchOptions = {
         executablePath,
