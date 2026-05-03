@@ -52,7 +52,8 @@ Thumbs.db
 .env.dev
 .env.local
 
-# Pre-bundled Netlify function output (regenerated at deploy time).
-# Keep netlify/functions-built/package.json tracked — it sets ESM mode.
-netlify/functions-built/api.mjs
+# Pre-bundled Netlify function output is checked in (Netlify's
+# deploy-time bundler is too unreliable for our workspace setup).
+# Regenerate before commit with:
+#   pnpm --filter @workspace/scripts run build-netlify-function
 netlify/functions-built/*.map

@@ -8,15 +8,16 @@
 # - Falls back any other path to index.html for client-side wouter routing.
 
 [build]
-  # We pre-bundle the Netlify function ourselves with esbuild because
-  # for ESM .mts entries Netlify's zip-it-and-ship-it falls back to NFT
-  # (file inclusion only), which doesn't follow pnpm workspace symlinks
-  # → cold-start crashes with `Cannot find package 'express'`. Our own
-  # esbuild step inlines every dep into a single ~7.6 MB .mjs.
-  command = "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/web build && pnpm --filter @workspace/scripts run build-netlify-function"
+  # The Netlify function is pre-bundled and committed at
+  # netlify/functions-built/api.mjs. Netlify just zips and ships it.
+  # Why pre-build instead of letting Netlify bundle: for ESM .mts
+  # entries Netlify's zip-it-and-ship-it falls back to NFT (file
+  # inclusion only), which doesn't follow pnpm workspace symlinks
+  # → cold-start crashes with `Cannot find package 'express'`.
+  # Regenerate the bundle with:
+  #   pnpm --filter @workspace/scripts run build-netlify-function
+  command = "pnpm install --frozen-lockfile=false && pnpm --filter @workspace/web build"
   publish = "artifacts/web/dist/public"
-  # Functions are zipped from this directory. The .mjs inside is the
-  # already-bundled output; package.json beside it just sets type:module.
   functions = "netlify/functions-built"
 
 [build.environment]
@@ -40,13 +41,13 @@
   NETLIFY = "true"
 
 [functions]
-  # Use esbuild so TypeScript sources are compiled and the workspace
-  # symlinks (@workspace/api-zod, etc.) get resolved transitively.
-  node_bundler = "esbuild"
-  # Chromium binary lives outside node_modules at runtime — chromium-min
-  # downloads it on demand into /tmp, so we don't need included_files
-  # for it. We do bundle puppeteer-core because it's pure JS.
-  external_node_modules = []
+  # Our api.mjs is already a fully-inlined ESM bundle (pre-built via
+  # `pnpm --filter @workspace/scripts run build-netlify-function` and
+  # committed to the repo). NFT (Node File Tracer) just copies the
+  # file as-is — since the bundle has no non-built-in imports, NFT
+  # has nothing to trace and ships api.mjs unchanged. Avoids the
+  # esbuild re-bundling that was pulling in unrelated workspace files.
+  node_bundler = "nft"
 
 # Same-origin API: every /api/* request is served by the catch-all
 # function. status=200 makes this a rewrite (not a redirect), so the
