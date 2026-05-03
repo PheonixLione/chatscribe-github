@@ -1,7 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import { createRequire } from "node:module";
+import pinoHttp from "pino-http";
 import router from "./routes";
+import { logger } from "./lib/logger";
 
 const IS_SERVERLESS =
   process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
@@ -11,11 +12,6 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 if (!IS_SERVERLESS) {
-  // Lazy-load pino-http + logger only on long-lived servers so the
-  // serverless bundle stays small and avoids pino's worker thread.
-  const require = createRequire(import.meta.url);
-  const pinoHttp = require("pino-http") as typeof import("pino-http").default;
-  const { logger } = require("./lib/logger") as typeof import("./lib/logger");
   app.use(
     pinoHttp({
       logger,
