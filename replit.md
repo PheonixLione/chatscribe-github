@@ -36,6 +36,17 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - `public/robots.txt` allows all crawlers and points to `/sitemap.xml`. `public/sitemap.xml` lists every public route.
 - Add new content pages by: creating `src/pages/X.tsx` (using `Layout` + `ContentPage` + `useSEO`), registering the route in `src/App.tsx`, adding the link to `Layout` nav/footer, and appending the URL to `public/sitemap.xml`.
 
+## Web app — Topical cluster (hub & spoke)
+
+- **Pillar guide** at `/guides/save-ai-conversations` is the topical hub. It covers the entire "saving AI conversations" topic and links down to all spoke guides.
+- **Spoke guides** at `/guides/save-chatgpt-as-pdf`, `/guides/export-claude-to-markdown`, `/guides/download-gemini-chat`, `/guides/save-grok-conversation`, `/guides/convert-ai-chat-to-markdown`. Each links back to the pillar and across to siblings (dense interlinking signal).
+- **Index** at `/guides` lists pillar + all spokes with `ItemList` schema.
+- **`GuideLayout`** (`src/components/GuideLayout.tsx`) is the shared shell for spoke pages. It auto-emits `BreadcrumbList`, `HowTo`, and `FAQPage` JSON-LD from the props you pass in.
+- Helper functions in `src/lib/seo.ts`: `useJsonLd(id, data)` (cleanup-aware injection), `breadcrumbLd()`, `howToLd()`, `faqLd()`.
+- Every spoke leads with a "Quick answer" callout (TL;DR paragraph styled in a primary-tinted box). This is what AI Overviews and featured snippets pull from — keep it concise, direct, and front-loaded with the platform/format the page targets.
+- Adding a new spoke: create `src/pages/guides/X.tsx` returning `<GuideLayout ... />` with `path`, `title`, `description`, `tldr`, `howTo.steps[]`, `faqs[]`, `related[]`, optional `pillar`. Then register the route in `App.tsx`, add it to `SPOKES` in `GuidesIndex.tsx`, append it to `public/sitemap.xml`, and add `related[]` cross-links from sibling spokes.
+- `Organization` JSON-LD lives in `index.html` alongside the existing `WebApplication` block — both are global, no per-route handling needed.
+
 ## Web app — Ads & ad-blocker enforcement
 
 - The whole app is wrapped in `AdblockGuard` (`src/components/AdblockGuard.tsx`) which runs five independent detection probes — bait `/ads.js` script, network fetch of `/ads.js`, hidden DOM bait element with classes filter lists target, real `<ins class="adsbygoogle">` tag, and bait image at `/ads/banner.gif`. Probes re-run every 4 s and on window focus.

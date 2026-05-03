@@ -62,3 +62,72 @@ export function useSEO(opts: SEOOptions) {
     setMeta("name", "twitter:image", ogImage);
   }, [opts.title, opts.description, opts.path, opts.keywords, opts.type, opts.noindex]);
 }
+
+/**
+ * Inject a JSON-LD <script> tag into <head> with a stable id, and clean
+ * it up on unmount. Use this for HowTo, FAQPage, BreadcrumbList, etc.
+ */
+export function useJsonLd(id: string, data: object | object[] | null | undefined) {
+  const serialized = data ? JSON.stringify(data) : "";
+  useEffect(() => {
+    if (!serialized) return;
+    document.getElementById(id)?.remove();
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.id = id;
+    el.text = serialized;
+    document.head.appendChild(el);
+    return () => {
+      document.getElementById(id)?.remove();
+    };
+  }, [id, serialized]);
+}
+
+/** Build a BreadcrumbList JSON-LD from an ordered list of crumbs. */
+export function breadcrumbLd(crumbs: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.name,
+      item: `${SITE_URL}${c.path === "/" ? "" : c.path}`,
+    })),
+  };
+}
+
+/** Build a HowTo JSON-LD from a list of step objects. */
+export function howToLd(opts: {
+  name: string;
+  description: string;
+  totalTime?: string; // ISO 8601 duration, e.g. "PT2M"
+  steps: { name: string; text: string }[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: opts.name,
+    description: opts.description,
+    ...(opts.totalTime ? { totalTime: opts.totalTime } : {}),
+    step: opts.steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.name,
+      text: s.text,
+    })),
+  };
+}
+
+/** Build a FAQPage JSON-LD from a list of Q&A pairs. */
+export function faqLd(faqs: { q: string; a: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}

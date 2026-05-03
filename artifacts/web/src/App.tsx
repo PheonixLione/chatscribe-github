@@ -11,6 +11,13 @@ import Faq from "@/pages/Faq";
 import About from "@/pages/About";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
+import GuidesIndex from "@/pages/guides/GuidesIndex";
+import SaveAiConversations from "@/pages/guides/SaveAiConversations";
+import SaveChatgptAsPdf from "@/pages/guides/SaveChatgptAsPdf";
+import ExportClaudeToMarkdown from "@/pages/guides/ExportClaudeToMarkdown";
+import DownloadGeminiChat from "@/pages/guides/DownloadGeminiChat";
+import SaveGrokConversation from "@/pages/guides/SaveGrokConversation";
+import ConvertAiChatToMarkdown from "@/pages/guides/ConvertAiChatToMarkdown";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +31,13 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/guides" component={GuidesIndex} />
+      <Route path="/guides/save-ai-conversations" component={SaveAiConversations} />
+      <Route path="/guides/save-chatgpt-as-pdf" component={SaveChatgptAsPdf} />
+      <Route path="/guides/export-claude-to-markdown" component={ExportClaudeToMarkdown} />
+      <Route path="/guides/download-gemini-chat" component={DownloadGeminiChat} />
+      <Route path="/guides/save-grok-conversation" component={SaveGrokConversation} />
+      <Route path="/guides/convert-ai-chat-to-markdown" component={ConvertAiChatToMarkdown} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { SITE_NAME } from "@/lib/seo";
 
 const NAV: { href: string; label: string }[] = [
+  { href: "/guides", label: "Guides" },
   { href: "/how-it-works", label: "How It Works" },
   { href: "/supported-platforms", label: "Platforms" },
   { href: "/faq", label: "FAQ" },
@@ -107,6 +108,10 @@ function Footer() {
         <div>
           <h2 className="text-white font-medium mb-3">Resources</h2>
           <ul className="space-y-2 text-muted-foreground">
+            <li><Link href="/guides" className="hover:text-white">Guides</Link></li>
+            <li><Link href="/guides/save-ai-conversations" className="hover:text-white">Save AI conversations</Link></li>
+            <li><Link href="/guides/save-chatgpt-as-pdf" className="hover:text-white">ChatGPT to PDF</Link></li>
+            <li><Link href="/guides/export-claude-to-markdown" className="hover:text-white">Claude to Markdown</Link></li>
             <li><Link href="/faq" className="hover:text-white">FAQ</Link></li>
             <li><Link href="/about" className="hover:text-white">About</Link></li>
           </ul>
