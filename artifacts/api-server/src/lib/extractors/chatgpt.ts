@@ -36,6 +36,17 @@ export const chatgpt: SourceDescriptor = {
     return isAllowedHost(url);
   },
   async extract(url) {
+    // 0) Direct backend share API. ChatGPT exposes
+    //    /backend-api/share/<id> as an unauthenticated JSON endpoint
+    //    that returns the same `mapping` tree as `__NEXT_DATA__`. When
+    //    available this skips the entire React Router hydration and
+    //    returns the full conversation in one HTTP call (~1 s).
+    const shareId = extractShareId(url);
+    if (shareId) {
+      const direct = await tryDirectShareApi(shareId, url.toString());
+      if (direct) return direct;
+    }
+
     // 1) Static fast path. ChatGPT used to embed the conversation in
     //    `__NEXT_DATA__`, but the share route migrated to React Router and
     //    now ships an empty shell + a turbo-stream payload that needs the
@@ -253,4 +264,61 @@ function findChatGPTConversation(data: unknown): FoundConv | null {
   }
   if (!messages.length) return null;
   return { title, messages };
+}
+
+/** Pull the share token out of `https://chatgpt.com/share/<id>`. */
+function extractShareId(url: URL): string | null {
+  const m = url.pathname.match(/\/share\/([^\/?#]+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Hit ChatGPT's public share-content backend directly. The endpoint at
+ * `https://chatgpt.com/backend-api/share/<id>` returns the same `mapping`
+ * tree the browser would otherwise hydrate via React Router — but as one
+ * unauthenticated JSON response. Skips the entire Puppeteer pipeline
+ * when the share is public.
+ *
+ * On failure (404, auth required, response shape change) returns null so
+ * the existing static + headless paths still run.
+ */
+async function tryDirectShareApi(
+  shareId: string,
+  originalUrl: string,
+): Promise<Conversation | null> {
+  const apiUrl = `https://chatgpt.com/backend-api/share/${encodeURIComponent(shareId)}`;
+  let text: string;
+  try {
+    text = await fetchPage(apiUrl, {
+      source: SOURCE,
+      isAllowedHost: (u) => u.hostname.toLowerCase() === "chatgpt.com",
+      acceptJson: true,
+    });
+  } catch (err) {
+    process.stderr.write(`[chatgpt] direct API call failed: ${(err as Error).message}\n`);
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    process.stderr.write(`[chatgpt] direct API non-JSON: ${text.slice(0, 200)}\n`);
+    return null;
+  }
+
+  const conv = findChatGPTConversation(parsed);
+  if (conv && conv.messages.length > 0) {
+    process.stderr.write(`[chatgpt] direct API extracted ${conv.messages.length} msgs\n`);
+    return {
+      source: SOURCE,
+      sourceLabel: "ChatGPT",
+      title: conv.title,
+      url: originalUrl,
+      messages: conv.messages,
+      extractedAt: new Date().toISOString(),
+    };
+  }
+  process.stderr.write(`[chatgpt] direct API parsed OK but findChatGPTConversation returned null\n`);
+  return null;
 }

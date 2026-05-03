@@ -60,7 +60,19 @@ export const grok: SourceDescriptor = {
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        settleMs: 2500,
+        // Trimmed from 2500 ms — once messages appear Grok hydration
+        // completes within ~500 ms.
+        settleMs: 1000,
+        onJsonResponse: (respUrl) => {
+          // Diagnostic: surface any candidate share-content endpoint so
+          // we can wire a direct API call (mirroring DeepSeek/ChatGPT).
+          if (
+            respUrl.includes("grok.com/") ||
+            (respUrl.includes("/api/") && respUrl.includes("share"))
+          ) {
+            process.stderr.write(`[grok] intercepted ${respUrl}\n`);
+          }
+        },
         waitFor: {
           // Wait until any conversation content is hydrated. We probe two
           // independent signals because Grok occasionally delays

@@ -66,6 +66,8 @@ export const gemini: SourceDescriptor = {
     //    20-60s on a slow link, so we use a generous budget and a
     //    "count-stable" predicate that waits until no new turns are
     //    appearing (the renderer streams in turns incrementally).
+    let interceptedConv: Conversation | null = null;
+
     try {
       const { html: rendered } = await renderPage(url.toString(), {
         source: SOURCE,
@@ -78,6 +80,19 @@ export const gemini: SourceDescriptor = {
         // mid-flight.
         timeoutMs: 150_000,
         settleMs: 2000,
+        // Capture the batchexecute body directly. When we have it we don't
+        // need to wait for DOM-stability — short-circuit waitFor via bailOut.
+        onTextResponse: (respUrl, text) => {
+          if (!respUrl.includes("batchexecute")) return;
+          const conv = parseBatchexecuteBody(text, url.toString());
+          if (conv && conv.messages.length > 0) {
+            interceptedConv = conv;
+            process.stderr.write(
+              `[gemini] intercepted batchexecute → ${conv.messages.length} msgs\n`,
+            );
+          }
+        },
+        bailOut: () => interceptedConv !== null,
         waitFor: {
           fn: `
             // Auto-dismiss the "this app was created by another person"
@@ -187,6 +202,10 @@ export const gemini: SourceDescriptor = {
           `,
         },
       });
+
+      // XHR-captured batchexecute is authoritative — full conversation
+      // before any DOM hydration delay.
+      if (interceptedConv) return interceptedConv;
 
       const classified = classifyRendered(rendered);
       if (classified) throw classified;
@@ -486,6 +505,60 @@ function sliceBalancedObject(text: string, atIndex: number): string | null {
 interface FoundConv {
   title?: string;
   messages: ChatMessage[];
+}
+
+/**
+ * Decode Gemini's `/_/BardChatUi/data/batchexecute` response and run the
+ * existing `findGeminiConversationFromAf` walker on the inner payload.
+ *
+ * Body shape (Google's anti-XSSI prefix + envelope):
+ *
+ *   )]}'
+ *   38
+ *   [["wrb.fr","ujx1Bf","[stringified-json-array]",null,null,null,"generic"], ...]
+ *
+ * We strip the prefix, parse the outer array, and for each `wrb.fr`
+ * envelope entry try parsing its third element (a JSON string) and
+ * walking it. Whichever rpcid contains the conversation wins.
+ */
+function parseBatchexecuteBody(
+  text: string,
+  originalUrl: string,
+): Conversation | null {
+  // Prefix is `)]}'\n` and an optional decimal length line, followed by JSON.
+  const stripped = text.replace(/^[)\]}'\s\d]+/, "");
+  let outer: unknown;
+  try {
+    outer = JSON.parse(stripped);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(outer)) return null;
+
+  for (const entry of outer) {
+    if (!Array.isArray(entry)) continue;
+    if (entry[0] !== "wrb.fr") continue;
+    const dataStr = entry[2];
+    if (typeof dataStr !== "string" || !dataStr.trim()) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(dataStr);
+    } catch {
+      continue;
+    }
+    const conv = findGeminiConversationFromAf(parsed);
+    if (conv && conv.messages.length > 0) {
+      return {
+        source: SOURCE,
+        sourceLabel: "Gemini",
+        title: conv.title,
+        url: originalUrl,
+        messages: conv.messages,
+        extractedAt: new Date().toISOString(),
+      };
+    }
+  }
+  return null;
 }
 
 function findGeminiConversationFromAf(data: unknown): FoundConv | null {

@@ -71,7 +71,16 @@ export const claude: SourceDescriptor = {
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        settleMs: 1500,
+        // Claude hydrates within ~200 ms once Cloudflare clears.
+        // Trimmed from 1500 ms to 800 ms.
+        settleMs: 800,
+        onJsonResponse: (respUrl) => {
+          // Diagnostic: surface any unauthenticated share-content endpoint
+          // Claude may expose so we can wire a direct API call later.
+          if (respUrl.includes("/api/") && respUrl.includes("share")) {
+            process.stderr.write(`[claude] intercepted ${respUrl}\n`);
+          }
+        },
         waitFor: {
           fn: `
             if (/just a moment|verifying|cloudflare/i.test(document.title || "")) return false;

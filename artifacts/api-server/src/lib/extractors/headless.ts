@@ -247,6 +247,20 @@ export interface RenderOptions {
    * responses whose content-type contains "json".
    */
   onJsonResponse?: (url: string, body: unknown) => void;
+  /**
+   * Called for every text/javascript response (Google's `batchexecute`
+   * RPC for Gemini uses this content type with a `)]}'\n`-prefixed JSON
+   * array body). Caller is responsible for any prefix-stripping and
+   * inner JSON parsing.
+   */
+  onTextResponse?: (url: string, text: string) => void;
+  /**
+   * Polled alongside `waitFor`. When it returns true the wait resolves
+   * immediately, even if the readiness predicate hasn't fired. Use this
+   * to short-circuit DOM-stability polling once an XHR-intercepted
+   * payload already contains the full conversation.
+   */
+  bailOut?: () => boolean;
 }
 
 export interface RenderResult {
@@ -432,22 +446,30 @@ export async function renderPage(
       }
     });
 
-    // Intercept JSON API responses so callers can capture conversation data
-    // before the DOM is rendered (bypasses virtual-list truncation).
-    if (opts.onJsonResponse) {
-      const cb = opts.onJsonResponse;
+    // Intercept JSON / text-javascript API responses so callers can
+    // capture conversation data before the DOM is rendered (bypasses
+    // virtual-list truncation entirely). text/javascript covers Google's
+    // batchexecute RPC used by Gemini.
+    if (opts.onJsonResponse || opts.onTextResponse) {
+      const jsonCb = opts.onJsonResponse;
+      const textCb = opts.onTextResponse;
       page.on("response", (res) => {
         const ct = res.headers()["content-type"] ?? "";
-        if (!ct.includes("json")) return;
-        // Use res.text() + JSON.parse so encoding quirks that trip up
-        // res.json() are surfaced rather than silently swallowed.
+        const isJson = ct.includes("json");
+        const isJs = ct.includes("javascript");
+        if (!isJson && !isJs) return;
         res.text().then((text) => {
-          try {
-            cb(res.url(), JSON.parse(text));
-          } catch {
-            process.stderr.write(
-              `[headless] JSON parse failed for ${res.url()} body=${text.slice(0, 120)}\n`,
-            );
+          if (isJs && textCb) {
+            try { textCb(res.url(), text); } catch { /* swallow */ }
+          }
+          if (isJson && jsonCb) {
+            try {
+              jsonCb(res.url(), JSON.parse(text));
+            } catch {
+              process.stderr.write(
+                `[headless] JSON parse failed for ${res.url()} body=${text.slice(0, 120)}\n`,
+              );
+            }
           }
         }).catch(() => {});
       });
@@ -489,15 +511,35 @@ export async function renderPage(
     }
 
     try {
-      if ("selector" in opts.waitFor) {
-        await page.waitForSelector(opts.waitFor.selector, { timeout: timeoutMs });
+      // Race the browser-side waitFor against a Node-side bailOut poll
+      // (e.g. "did onJsonResponse capture the conversation already?").
+      // Whichever resolves first wins; bailOut lets us short-circuit
+      // expensive DOM-stability waits when an XHR has already given us
+      // the data.
+      const bailOut = opts.bailOut;
+      const waitForBrowser =
+        "selector" in opts.waitFor
+          ? page.waitForSelector(opts.waitFor.selector, { timeout: timeoutMs })
+          : page.waitForFunction(
+              `(function(){ ${opts.waitFor.fn} })()`,
+              { timeout: timeoutMs, polling: 500 },
+            );
+      if (bailOut) {
+        let bailTimer: ReturnType<typeof setInterval> | null = null;
+        const bailPromise = new Promise<void>((resolve) => {
+          bailTimer = setInterval(() => {
+            try {
+              if (bailOut()) resolve();
+            } catch { /* swallow */ }
+          }, 250);
+        });
+        try {
+          await Promise.race([waitForBrowser, bailPromise]);
+        } finally {
+          if (bailTimer) clearInterval(bailTimer);
+        }
       } else {
-        // Wrap the body in a function the browser will evaluate. Using a
-        // string predicate keeps DOM globals out of our Node typecheck.
-        await page.waitForFunction(
-          `(function(){ ${opts.waitFor.fn} })()`,
-          { timeout: timeoutMs, polling: 500 },
-        );
+        await waitForBrowser;
       }
     } catch {
       // On serverless, a render timeout is the dominant failure mode —
