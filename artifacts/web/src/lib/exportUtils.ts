@@ -1,6 +1,4 @@
 import { Conversation } from "@workspace/api-client-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 export function copyToClipboard(text: string) {
   return navigator.clipboard.writeText(text);
@@ -43,30 +41,32 @@ export function generatePlainText(conversation: Conversation) {
 export async function downloadPdf(elementId: string, filename: string) {
   const element = document.getElementById(elementId);
   if (!element) return;
-  
-  // Add a specific class to override dark mode for printing if desired, or keep as is.
-  // For best results, we just render what is on screen.
+
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+
   const canvas = await html2canvas(element, { scale: 2, backgroundColor: "#09090b" });
   const imgData = canvas.toDataURL("image/png");
-  
+
   const pdf = new jsPDF("p", "mm", "a4");
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-  
-  // Handle pagination roughly
+
   let heightLeft = pdfHeight;
   let position = 0;
   const pageHeight = pdf.internal.pageSize.getHeight();
-  
+
   pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
   heightLeft -= pageHeight;
-  
+
   while (heightLeft >= 0) {
     position = heightLeft - pdfHeight;
     pdf.addPage();
     pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
     heightLeft -= pageHeight;
   }
-  
+
   pdf.save(filename);
 }

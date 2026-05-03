@@ -30,17 +30,44 @@
     <meta name="twitter:image" content="https://chatextractor.replit.app/opengraph.jpg" />
 
     <!-- Ad-blocker detector bait. Filter lists hide /ads.js so this script
-         never runs and `window.canRunAds` stays undefined. -->
-    <script src="/ads.js"></script>
+         never runs and `window.canRunAds` stays undefined. Deferred so it
+         does not block first paint. -->
+    <script src="/ads.js" defer></script>
 
     <!-- Google AdSense bootstrap. Replace ca-pub-XXXXXXXXXXXXXXXX with
-         your real AdSense publisher ID before launch. -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+         your real AdSense publisher ID before launch. Loaded after the
+         page is interactive so it cannot delay LCP. -->
+    <script>
+      window.addEventListener("load", function () {
+        setTimeout(function () {
+          var s = document.createElement("script");
+          s.async = true;
+          s.crossOrigin = "anonymous";
+          s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX";
+          document.head.appendChild(s);
+        }, 1500);
+      });
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+
+    <!-- Structured data: Organization -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Chat Extractor",
+        "url": "https://chatextractor.replit.app/",
+        "logo": "https://chatextractor.replit.app/favicon.svg",
+        "description": "Independent free tool for extracting public AI chat share links from ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek into Markdown, PDF, or plain text.",
+        "sameAs": []
+      }
+    </script>
 
     <!-- Structured data: Organization -->
     <script type="application/ld+json">
