@@ -41,13 +41,14 @@
   NETLIFY = "true"
 
 [functions]
-  # Our api.mjs is already a fully-inlined ESM bundle (pre-built via
-  # `pnpm --filter @workspace/scripts run build-netlify-function` and
-  # committed to the repo). NFT (Node File Tracer) just copies the
-  # file as-is — since the bundle has no non-built-in imports, NFT
-  # has nothing to trace and ships api.mjs unchanged. Avoids the
-  # esbuild re-bundling that was pulling in unrelated workspace files.
-  node_bundler = "nft"
+  # api.mjs is already a fully-inlined ESM bundle (every dep inlined,
+  # only Node built-ins external). esbuild has nothing to do but
+  # re-emit the file unchanged.
+  # Avoid `nft`: it treated netlify/functions-built/ as a pnpm workspace
+  # package (via a now-removed package.json) and walked sibling
+  # vite.config.ts files whose top-level await broke its CJS step.
+  node_bundler = "esbuild"
+  external_node_modules = []
 
 # Same-origin API: every /api/* request is served by the catch-all
 # function. status=200 makes this a rewrite (not a redirect), so the
