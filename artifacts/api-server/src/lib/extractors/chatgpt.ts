@@ -19,6 +19,12 @@ import {
 
 const SOURCE = "chatgpt" as const;
 
+// Direct-API attempts on Netlify/Vercel risk pushing past the 10 s
+// function limit if they fail or hang (cascade to headless cold-start
+// won't fit). Skip the direct API on serverless.
+const IS_SERVERLESS =
+  process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+
 const isAllowedHost = (u: URL) => {
   const h = u.hostname.toLowerCase();
   return (
@@ -41,10 +47,13 @@ export const chatgpt: SourceDescriptor = {
     //    that returns the same `mapping` tree as `__NEXT_DATA__`. When
     //    available this skips the entire React Router hydration and
     //    returns the full conversation in one HTTP call (~1 s).
-    const shareId = extractShareId(url);
-    if (shareId) {
-      const direct = await tryDirectShareApi(shareId, url.toString());
-      if (direct) return direct;
+    //    Skipped on serverless (see IS_SERVERLESS comment above).
+    if (!IS_SERVERLESS) {
+      const shareId = extractShareId(url);
+      if (shareId) {
+        const direct = await tryDirectShareApi(shareId, url.toString());
+        if (direct) return direct;
+      }
     }
 
     // 1) Static fast path. ChatGPT used to embed the conversation in

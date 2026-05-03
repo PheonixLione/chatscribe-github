@@ -14,6 +14,14 @@ import {
 
 const SOURCE = "deepseek" as const;
 
+// Netlify Functions / Vercel give us ~10 s. Direct-API attempts that
+// fail or hang push us past that budget once headless cold-start is
+// added. Skip the direct API entirely on serverless and let the
+// existing static + headless path (which has its own SERVERLESS_RENDER
+// _BUDGET_MS) handle the request.
+const IS_SERVERLESS =
+  process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+
 const isAllowedHost = (u: URL) => {
   const h = u.hostname.toLowerCase();
   return (
@@ -39,10 +47,13 @@ export const deepseek: SourceDescriptor = {
     //    XHR shows DeepSeek serves the entire conversation in one call to
     //    `/api/v0/share/content?share_id=<id>` — if that endpoint isn't
     //    WAF-gated, hitting it directly skips the entire browser pipeline.
-    const shareId = extractShareId(url);
-    if (shareId) {
-      const direct = await tryDirectShareApi(shareId, url.toString());
-      if (direct) return direct;
+    //    Skipped on serverless (see IS_SERVERLESS comment above).
+    if (!IS_SERVERLESS) {
+      const shareId = extractShareId(url);
+      if (shareId) {
+        const direct = await tryDirectShareApi(shareId, url.toString());
+        if (direct) return direct;
+      }
     }
 
     // 1) Try the static SSR shell first. DeepSeek normally serves an AWS
