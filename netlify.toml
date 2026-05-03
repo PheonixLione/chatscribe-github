@@ -41,12 +41,11 @@
   NETLIFY = "true"
 
 [functions]
-  # api.mjs is already a fully-inlined ESM bundle (every dep inlined,
-  # only Node built-ins external). esbuild has nothing to do but
-  # re-emit the file unchanged.
-  # Avoid `nft`: it treated netlify/functions-built/ as a pnpm workspace
-  # package (via a now-removed package.json) and walked sibling
-  # vite.config.ts files whose top-level await broke its CJS step.
+  # api.js is a fully-inlined CJS bundle (every dep inlined, only Node
+  # built-ins external). Built as CJS deliberately so Netlify's deploy-
+  # time esbuild step (which always emits CJS) doesn't have to convert
+  # — conversion previously broke `import.meta.url` references inside
+  # bundled deps.
   node_bundler = "esbuild"
   external_node_modules = []
 

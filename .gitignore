@@ -57,3 +57,4 @@ Thumbs.db
 # Regenerate before commit with:
 #   pnpm --filter @workspace/scripts run build-netlify-function
 netlify/functions-built/*.map
+netlify/functions-built/*.mjs

@@ -25,26 +25,42 @@ const entry = resolve(repoRoot, "netlify/functions/api.mts");
 const outdir = resolve(repoRoot, "netlify/functions-built");
 
 await mkdir(outdir, { recursive: true });
-// Only remove the previous build output. Keep package.json (which is
-// committed and declares "type": "module" so the .mjs loads as ESM).
+// Clear any previous build output (both ESM and CJS variants from
+// older revisions of this script).
 await rm(join(outdir, "api.mjs"), { force: true });
 await rm(join(outdir, "api.mjs.map"), { force: true });
+await rm(join(outdir, "api.js"), { force: true });
+await rm(join(outdir, "api.js.map"), { force: true });
 
+// Output as CJS — Netlify's deploy-time esbuild step ALWAYS converts
+// our function to CJS (its default output format), and the previous
+// ESM-with-banner approach left an `import.meta.url` reference that
+// became `undefined` after that conversion → cold-start crash. Building
+// CJS from the start sidesteps the conversion: `require()` is native
+// and Netlify ships api.js unchanged.
+//
+// Some bundled deps (chromium-min, enhanced-resolve) reference
+// `import.meta.url` directly. esbuild's default CJS lowering sets
+// `import_meta = {}`, so `import.meta.url` becomes `undefined` and
+// `fileURLToPath(undefined)` throws. The `define` below replaces every
+// `import.meta.url` site with a real `file://` URL derived from the
+// CJS-native `__filename`.
 const result = await build({
   entryPoints: [entry],
   outdir,
   bundle: true,
   platform: "node",
   target: "node22",
-  format: "esm",
+  format: "cjs",
   mainFields: ["main", "module"],
   conditions: ["node"],
-  outExtension: { ".js": ".mjs" },
+  outExtension: { ".js": ".js" },
   logLevel: "warning",
-  // Same banner verify-netlify-bundle uses: lets bundled CJS deps that
-  // call `require(...)` (lazy pino-http, etc.) keep working in ESM.
+  define: {
+    "import.meta.url": "__nv_import_meta_url",
+  },
   banner: {
-    js: "import { createRequire as __nv_cr } from 'module'; const require = __nv_cr(import.meta.url);",
+    js: "const __nv_import_meta_url = require('url').pathToFileURL(__filename).href;",
   },
 });
 
@@ -53,4 +69,4 @@ if (result.errors.length > 0) {
   process.exit(1);
 }
 
-console.log(`[build-netlify-function] wrote ${outdir}/api.mjs`);
+console.log(`[build-netlify-function] wrote ${outdir}/api.js`);
