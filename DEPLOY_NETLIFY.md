@@ -27,6 +27,28 @@ them as-is:
 
 No environment variables are required. First build takes ~3 min.
 
+## Rate limiting (recommended)
+
+The in-memory limiter on `/api/extract` is a no-op on Netlify because
+each function invocation may land on a fresh Lambda container. To
+protect the deploy from abuse — burning your free function-runtime
+budget and risking outbound IP bans from ChatGPT / Claude / etc — wire
+up a free [Upstash Redis](https://upstash.com) database (10K
+commands/day on the free tier is plenty) and set two env vars in
+**Site settings → Environment variables**:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Both come straight from the Upstash console under **REST API**. Once
+set, the limiter runs distributed across cold starts. Optional knobs:
+
+- `RATE_LIMIT_WINDOW_MS` (default `60000`)
+- `RATE_LIMIT_MAX`       (default `20` requests per window per IP)
+
+Without these env vars the endpoint stays open — the boot log prints
+a warning so you'll notice.
+
 ## What you get
 
 - React SPA at `/` with client-side routing (hard refresh works on any route).
