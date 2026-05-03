@@ -199,11 +199,33 @@ export interface RenderResult {
   finalUrl: string;
 }
 
+/**
+ * Hard render budget on serverless platforms. Netlify/Vercel free tier
+ * forcibly terminates a sync invocation at ~10 seconds — if our render
+ * is still running at that point, the platform returns its own opaque
+ * timeout response (504 / "Function execution timed out") and the
+ * frontend never sees our friendly `headless_unavailable` JSON error.
+ *
+ * 7 s leaves a ~3 s safety margin: enough headroom for response
+ * serialization, lambda freeze cost, and the response trip back
+ * through the CDN. Every internal puppeteer timeout (navigation,
+ * waitForSelector, waitForFunction) inherits this clamp, so a stalled
+ * Gemini batchexecute call or a slow Cloudflare challenge fails fast
+ * and surfaces as `headless_unavailable` rather than a platform 504.
+ *
+ * Long-lived servers (Replit) keep the caller's full requested budget
+ * so well-behaved long Gemini conversations still hydrate completely.
+ */
+const SERVERLESS_RENDER_BUDGET_MS = 7_000;
+
 export async function renderPage(
   url: string,
   opts: RenderOptions,
 ): Promise<RenderResult> {
-  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const requestedTimeout = opts.timeoutMs ?? 30_000;
+  const timeoutMs = IS_SERVERLESS
+    ? Math.min(requestedTimeout, SERVERLESS_RENDER_BUDGET_MS)
+    : requestedTimeout;
   let browser: Browser;
   try {
     browser = await getBrowser();
@@ -230,6 +252,13 @@ export async function renderPage(
   }
 
   const page = await browser.newPage();
+  // Belt-and-braces: even when individual operations don't take a
+  // `timeout` option, puppeteer's default-timeout setters guarantee the
+  // serverless clamp applies everywhere (waitForResponse, waitForXPath,
+  // future puppeteer additions, etc.). Long-lived servers also benefit
+  // from a tighter default than puppeteer's built-in 30 s.
+  page.setDefaultTimeout(timeoutMs);
+  page.setDefaultNavigationTimeout(timeoutMs);
   try {
     await page.setUserAgent(UA);
     await page.setExtraHTTPHeaders({
