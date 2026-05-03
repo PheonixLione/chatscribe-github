@@ -131,6 +131,25 @@ export const gemini: SourceDescriptor = {
             );
             var count = turns.length || legacy.length;
             if (count === 0) {
+              // Short-circuit private/sign-in-required shares. When the
+              // chat-app shell mounts but no <share-viewer> ever appears
+              // (and no other recognizable share UI either) the share is
+              // gated by sign-in and headless will never render the
+              // conversation. Track when the shell first appeared and
+              // give up after ~25s of no share content so the caller can
+              // surface a meaningful error instead of timing out at 150s.
+              var shell = document.querySelector("chat-app");
+              var anyShareUi = document.querySelector(
+                "share-viewer, immersive-share-landing-page, web-preview, " +
+                "immersive-share-disclaimer-dialog, mat-dialog-container"
+              );
+              if (shell && !anyShareUi) {
+                if (!window.__gemShellSince) {
+                  window.__gemShellSince = Date.now();
+                } else if (Date.now() - window.__gemShellSince > 25_000) {
+                  return true;
+                }
+              }
               window.__gemTurnCount = 0;
               window.__gemTextLen = 0;
               window.__gemTurnStable = 0;
@@ -208,6 +227,21 @@ function classifyRendered(html: string): ExtractError | null {
     return new ExtractError(
       "parse_failed",
       "This is a Gemini Canvas / Gem app share, not a chat conversation. Only conversation share links are supported.",
+      { source: SOURCE },
+    );
+  }
+  // Chat-app shell mounted but no share view ever appeared. Gemini does
+  // this when the share is private (the link only works for accounts the
+  // owner explicitly shared it with) or when the share has been revoked.
+  if (
+    /<chat-app\b/i.test(html) &&
+    !/<share-viewer\b/i.test(html) &&
+    !/<share-turn-viewer\b/i.test(html) &&
+    !/<user-query\b/i.test(html)
+  ) {
+    return new ExtractError(
+      "not_public",
+      "This Gemini share is private or has been revoked. Only public share links (viewable without sign-in) can be extracted.",
       { source: SOURCE },
     );
   }
