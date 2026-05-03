@@ -35,6 +35,16 @@ export const deepseek: SourceDescriptor = {
     return isAllowedHost(url) && url.pathname.includes("/share/");
   },
   async extract(url) {
+    // 0) Try the public share-content API directly. The browser-intercepted
+    //    XHR shows DeepSeek serves the entire conversation in one call to
+    //    `/api/v0/share/content?share_id=<id>` — if that endpoint isn't
+    //    WAF-gated, hitting it directly skips the entire browser pipeline.
+    const shareId = extractShareId(url);
+    if (shareId) {
+      const direct = await tryDirectShareApi(shareId, url.toString());
+      if (direct) return direct;
+    }
+
     // 1) Try the static SSR shell first. DeepSeek normally serves an AWS
     //    WAF challenge here, but if a proxy/cache returns the real HTML
     //    we'll use it without spinning up a browser.
@@ -80,6 +90,18 @@ export const deepseek: SourceDescriptor = {
           process.stderr.write(
             `[deepseek] intercepted ${respUrl} → ${conv ? conv.messages.length + " msgs" : "no match"}\n`,
           );
+          // Dump full body when the share-content endpoint fails to parse.
+          // This is the one XHR that contains the conversation; if our
+          // generic walker can't find it, we need to see the exact shape.
+          if (!conv && respUrl.includes("/api/v0/share/content")) {
+            try {
+              process.stderr.write(
+                `[deepseek] share/content body: ${JSON.stringify(body).slice(0, 4000)}\n`,
+              );
+            } catch {
+              process.stderr.write(`[deepseek] share/content body: (unstringifiable)\n`);
+            }
+          }
           if (conv && conv.messages.length > 0) {
             interceptedBatches.push(conv);
           }
@@ -462,4 +484,78 @@ function mergeInterceptedBatches(
     messages,
     extractedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Pull the share token out of `https://chat.deepseek.com/share/<id>` (or
+ * `/a/share/<id>`). Returns null if the URL doesn't match either shape.
+ */
+function extractShareId(url: URL): string | null {
+  const m = url.pathname.match(/\/(?:a\/)?share\/([^\/?#]+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Fetch DeepSeek's public share-content endpoint directly. The browser
+ * always hits this URL after solving the WAF challenge — if the endpoint
+ * itself is unauthenticated, going straight to it skips the entire
+ * Puppeteer pipeline and returns the full conversation in one shot.
+ *
+ * On failure (WAF block, auth required, response shape mismatch) returns
+ * null and falls back to the existing static + headless paths.
+ */
+async function tryDirectShareApi(
+  shareId: string,
+  originalUrl: string,
+): Promise<Conversation | null> {
+  const apiUrl = `https://chat.deepseek.com/api/v0/share/content?share_id=${encodeURIComponent(shareId)}`;
+  let text: string;
+  try {
+    text = await fetchPage(apiUrl, {
+      source: SOURCE,
+      isAllowedHost: (u) => u.hostname.toLowerCase() === "chat.deepseek.com",
+      acceptJson: true,
+      headers: {
+        "x-app-version": "20241129.1",
+        "x-client-platform": "web",
+        "x-client-version": "1.0.0-always",
+      },
+    });
+  } catch (err) {
+    process.stderr.write(`[deepseek] direct API call failed: ${(err as Error).message}\n`);
+    return null;
+  }
+
+  // WAF challenge body is small + has a recognizable token blob.
+  if (isAwsWafChallenge(text)) {
+    process.stderr.write(`[deepseek] direct API blocked by WAF\n`);
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    process.stderr.write(
+      `[deepseek] direct API returned non-JSON (first 200): ${text.slice(0, 200)}\n`,
+    );
+    return null;
+  }
+
+  // Always log the shape so we can refine the parser if walkAll misses.
+  try {
+    process.stderr.write(
+      `[deepseek] direct API body (first 4000): ${JSON.stringify(parsed).slice(0, 4000)}\n`,
+    );
+  } catch {
+    // ignore
+  }
+
+  const conv = conversationFromState(parsed, originalUrl);
+  if (conv) {
+    process.stderr.write(`[deepseek] direct API extracted ${conv.messages.length} msgs\n`);
+    return conv;
+  }
+  process.stderr.write(`[deepseek] direct API parsed OK but conversationFromState returned null\n`);
+  return null;
 }
