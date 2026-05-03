@@ -369,6 +369,45 @@ function parseInitialState(
   return null;
 }
 
+/**
+ * Pull a string body out of a DeepSeek message item, handling both shapes
+ * the share-content API has been observed to return:
+ *
+ *   1. `content: "string"` — older / direct-API shape
+ *   2. `fragments: [{ type: "REQUEST"|"RESPONSE"|"THINK"|..., content }]`
+ *      — newer browser-XHR shape
+ *
+ * For fragments, THINK / THINKING / REASONING blocks are wrapped in a
+ * `> **Thinking**` blockquote so chain-of-thought stays readable but
+ * visually distinct from the final answer.
+ *
+ * Returns null if neither field yields a usable string.
+ */
+function extractMessageContent(item: Record<string, unknown>): string | null {
+  if (typeof item.content === "string") return item.content;
+
+  const frags = item.fragments;
+  if (Array.isArray(frags) && frags.length > 0) {
+    const parts: string[] = [];
+    for (const f of frags) {
+      if (!isObject(f)) continue;
+      const text = typeof f.content === "string" ? f.content : "";
+      if (!text) continue;
+      const type = typeof f.type === "string" ? f.type.toUpperCase() : "";
+      if (type === "THINK" || type === "THINKING" || type === "REASONING") {
+        parts.push(
+          "> **Thinking**\n>\n" +
+            text.split("\n").map((l) => `> ${l}`).join("\n"),
+        );
+      } else {
+        parts.push(text);
+      }
+    }
+    if (parts.length > 0) return parts.join("\n\n");
+  }
+  return null;
+}
+
 function conversationFromState(
   state: unknown,
   originalUrl: string,
@@ -388,7 +427,11 @@ function conversationFromState(
       let valid = true;
       for (const item of arr) {
         if (!isObject(item)) { valid = false; break; }
-        const role = item.role;
+        const rawRole = item.role;
+        if (typeof rawRole !== "string") { valid = false; break; }
+        // Case-insensitive: DeepSeek's share-content API returns "USER" /
+        // "ASSISTANT" uppercase; older shapes use lowercase.
+        const role = rawRole.toLowerCase();
         // Non-display message types (DeepSeek R1 chain-of-thought, tool
         // calls): skip the item but keep the array valid. Any OTHER
         // unrecognised role still rejects the whole array — that's what
@@ -396,11 +439,12 @@ function conversationFromState(
         if (role === "thinking" || role === "tool" || role === "function") {
           continue;
         }
-        const content = item.content;
-        if (
-          (role !== "user" && role !== "assistant" && role !== "system") ||
-          typeof content !== "string"
-        ) {
+        if (role !== "user" && role !== "assistant" && role !== "system") {
+          valid = false;
+          break;
+        }
+        const content = extractMessageContent(item);
+        if (typeof content !== "string") {
           valid = false;
           break;
         }
