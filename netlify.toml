@@ -19,6 +19,11 @@
   # minor version behind dev — Netlify's currently-supported LTS
   # ceiling on the free plan.
   NODE_VERSION = "22"
+  # Required for function runtime: pino skips the pino-pretty worker-thread
+  # transport in production mode. Without this, Netlify's esbuild bundles
+  # the function without esbuild-plugin-pino, the transport worker fails to
+  # load, and the function crashes with 500 before handling any request.
+  NODE_ENV = "production"
   # Tell @sparticuz/chromium-min where to download the matching Chromium
   # tarball at cold-start. This URL is pinned to the version that ships
   # with @sparticuz/chromium-min ^148.0.0 — bump in lockstep when you

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, delimiter } from "node:path";
 import type { Browser, LaunchOptions } from "puppeteer-core";
 import { ExtractError, type ChatSource } from "./types";
 
@@ -55,10 +55,20 @@ const UA =
 const FIXED_CANDIDATE_PATHS = [
   process.env.PUPPETEER_EXECUTABLE_PATH,
   process.env.CHROMIUM_PATH,
+  // Linux / Replit / Docker
   "/usr/bin/chromium",
   "/usr/bin/chromium-browser",
   "/usr/bin/google-chrome",
   "/usr/bin/google-chrome-stable",
+  // Windows — Chrome
+  process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe")
+    : undefined,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  // Windows — Edge (fallback when Chrome is not installed)
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
 ];
 
 const BIN_NAMES = ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome"];
@@ -79,7 +89,7 @@ function findChromium(): string {
   // Search every directory in PATH for one of the known binary names.
   // On Replit/NixOS chromium lives under /nix/store/<hash>-chromium-*/bin/.
   const pathEnv = process.env.PATH ?? "";
-  for (const dir of pathEnv.split(":")) {
+  for (const dir of pathEnv.split(delimiter)) {
     if (!dir) continue;
     for (const name of BIN_NAMES) {
       const candidate = join(dir, name);
