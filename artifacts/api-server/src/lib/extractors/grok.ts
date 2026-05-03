@@ -63,6 +63,7 @@ export const grok: SourceDescriptor = {
         // Trimmed from 2500 ms — once messages appear Grok hydration
         // completes within ~500 ms.
         settleMs: 1000,
+        responseUrlIncludes: ["/api/", "grok.com", "share"],
         onJsonResponse: (respUrl) => {
           // Diagnostic: surface any candidate share-content endpoint so
           // we can wire a direct API call (mirroring DeepSeek/ChatGPT).

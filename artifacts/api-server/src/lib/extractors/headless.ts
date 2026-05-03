@@ -241,6 +241,14 @@ export interface RenderOptions {
    */
   scrollUpProgress?: () => number;
   /**
+   * URL substrings to allow through to the response handlers. When set,
+   * only responses whose URL contains one of these strings are buffered
+   * via `res.text()`. Crucial on serverless: prevents pulling MB-sized
+   * JS bundles and unrelated API payloads into a 1 GB Lambda heap when
+   * the caller would have discarded them anyway.
+   */
+  responseUrlIncludes?: string[];
+  /**
    * Called for every JSON response the page receives. Use this to intercept
    * API responses that contain the full conversation data before the DOM is
    * rendered (avoids virtual-list truncation entirely). Only fires for
@@ -453,21 +461,27 @@ export async function renderPage(
     if (opts.onJsonResponse || opts.onTextResponse) {
       const jsonCb = opts.onJsonResponse;
       const textCb = opts.onTextResponse;
+      const allow = opts.responseUrlIncludes;
       page.on("response", (res) => {
         const ct = res.headers()["content-type"] ?? "";
         const isJson = ct.includes("json");
         const isJs = ct.includes("javascript");
         if (!isJson && !isJs) return;
+        const url = res.url();
+        // Pre-filter by URL so we don't buffer 5 MB JS bundles or unrelated
+        // analytics JSON into a 1 GB Lambda heap. Without this filter
+        // serverless deployments OOM on heavy share pages.
+        if (allow && !allow.some((s) => url.includes(s))) return;
         res.text().then((text) => {
           if (isJs && textCb) {
-            try { textCb(res.url(), text); } catch { /* swallow */ }
+            try { textCb(url, text); } catch { /* swallow */ }
           }
           if (isJson && jsonCb) {
             try {
-              jsonCb(res.url(), JSON.parse(text));
+              jsonCb(url, JSON.parse(text));
             } catch {
               process.stderr.write(
-                `[headless] JSON parse failed for ${res.url()} body=${text.slice(0, 120)}\n`,
+                `[headless] JSON parse failed for ${url} body=${text.slice(0, 120)}\n`,
               );
             }
           }

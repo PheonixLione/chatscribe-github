@@ -80,6 +80,7 @@ export const gemini: SourceDescriptor = {
         // mid-flight.
         timeoutMs: 150_000,
         settleMs: 2000,
+        responseUrlIncludes: ["batchexecute"],
         // Capture the batchexecute body directly. When we have it we don't
         // need to wait for DOM-stability — short-circuit waitFor via bailOut.
         onTextResponse: (respUrl, text) => {

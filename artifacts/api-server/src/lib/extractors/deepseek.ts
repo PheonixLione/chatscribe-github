@@ -96,6 +96,7 @@ export const deepseek: SourceDescriptor = {
         scrollUp: true,
         scrollUpTimeoutMs: 60_000,
         scrollUpProgress: () => interceptedBatches.length,
+        responseUrlIncludes: ["/api/v0/share", "/api/v0/chat"],
         onJsonResponse: (respUrl, body) => {
           const conv = conversationFromState(body, url.toString());
           process.stderr.write(
