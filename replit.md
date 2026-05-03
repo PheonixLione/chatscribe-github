@@ -47,6 +47,13 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - Adding a new spoke: create `src/pages/guides/X.tsx` returning `<GuideLayout ... />` with `path`, `title`, `description`, `tldr`, `howTo.steps[]`, `faqs[]`, `related[]`, optional `pillar`. Then register the route in `App.tsx`, add it to `SPOKES` in `GuidesIndex.tsx`, append it to `public/sitemap.xml`, and add `related[]` cross-links from sibling spokes.
 - `Organization` JSON-LD lives in `index.html` alongside the existing `WebApplication` block — both are global, no per-route handling needed.
 
+## Web app — Performance budget
+
+- `pnpm --filter @workspace/web run perf-check` runs a production build and asserts the **initial JS for the Home route** (entry chunk + every `<link rel="modulepreload">`) stays under a gzip budget. Default ceiling is 245 kB gzip; current total is ~205 kB gzip.
+- The script (`artifacts/web/scripts/perf-check.mjs`) parses `dist/public/index.html`, finds every JS asset the browser fetches before interactivity, gzip-compresses each one, and exits 1 if the sum exceeds the budget. Override the ceiling with `PERF_BUDGET_GZIP_BYTES=...`.
+- Run this before merging any change that touches `src/pages/Home.tsx`, `src/App.tsx`, `src/main.tsx`, or `vite.config.ts`'s `manualChunks`. If it fails, the script prints the per-chunk gzip breakdown — the offender is almost always a heavy dep (markdown, syntax-highlighter, pdf, etc.) that got statically imported into the entry chunk instead of `React.lazy`'d.
+- The chunking rules in `vite.config.ts` plus `modulePreload.resolveDependencies` keep `markdown`, `syntax-highlighter`, and `pdf` chunks out of the initial preload set — do not weaken either without re-running `perf-check`.
+
 ## Web app — Ads & ad-blocker enforcement
 
 - The whole app is wrapped in `AdblockGuard` (`src/components/AdblockGuard.tsx`) which runs five independent detection probes — bait `/ads.js` script, network fetch of `/ads.js`, hidden DOM bait element with classes filter lists target, real `<ins class="adsbygoogle">` tag, and bait image at `/ads/banner.gif`. Probes re-run every 4 s and on window focus.
