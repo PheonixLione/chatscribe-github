@@ -350,72 +350,36 @@ function conversationFromState(
   originalUrl: string,
 ): Conversation | null {
   // Walk every object in the state tree and inspect each of its array
-  // fields, looking for the longest array that contains chat messages.
-  // We skip (not reject) items with unknown roles (e.g. DeepSeek's
-  // "thinking" / "tool" / "function" entries) so a single non-standard
-  // message doesn't cause the entire conversation array to be discarded.
-  // We also accept array-typed content (OpenAI-style content blocks) by
-  // joining the text parts.
+  // fields, looking for the longest array whose entries ALL match
+  // {role: "user"|"assistant"|"system", content: string}. Strict
+  // whole-array rejection (not per-item skipping) is intentional: it
+  // prevents accidentally picking a larger UI-state or metadata array
+  // that incidentally has some items with matching field names.
   let bestMessages: ChatMessage[] | null = null;
   walkAll(state, (node) => {
     for (const key of Object.keys(node)) {
       const arr = node[key];
       if (!Array.isArray(arr) || arr.length === 0) continue;
       const candidate: ChatMessage[] = [];
-      let seenChatItem = false;
+      let valid = true;
       for (const item of arr) {
-        if (!isObject(item)) continue; // skip non-objects instead of rejecting array
+        if (!isObject(item)) { valid = false; break; }
         const role = item.role;
-        if (typeof role !== "string") continue;
-
-        // Normalise role variants across providers (case-insensitive).
-        const r = role.toLowerCase();
-        const normRole: "user" | "assistant" | "system" | null =
-          r === "user" || r === "human"
-            ? "user"
-            : r === "assistant" || r === "model"
-              ? "assistant"
-              : r === "system"
-                ? "system"
-                : null; // thinking / tool / function / etc — skip silently
-        if (!normRole) continue;
-
-        // content may be a plain string or an array of content blocks.
-        const rawContent = item.content;
-        let content = "";
-        if (typeof rawContent === "string") {
-          content = rawContent.trim();
-        } else if (Array.isArray(rawContent)) {
-          content = rawContent
-            .map((c) => {
-              if (typeof c === "string") return c;
-              if (isObject(c)) {
-                const t = c["text"] ?? c["content"] ?? "";
-                return typeof t === "string" ? t : "";
-              }
-              return "";
-            })
-            .filter(Boolean)
-            .join("\n\n")
-            .trim();
+        const content = item.content;
+        if (
+          (role !== "user" && role !== "assistant" && role !== "system") ||
+          typeof content !== "string"
+        ) {
+          valid = false;
+          break;
         }
-        // Fallback: try alternate field names DeepSeek may use.
-        if (!content) {
-          for (const alt of ["content_v2", "text", "message", "body"]) {
-            const v = item[alt];
-            if (typeof v === "string" && v.trim()) {
-              content = v.trim();
-              break;
-            }
-          }
-        }
-        if (!content) continue;
-
-        seenChatItem = true;
-        candidate.push({ role: normRole, content });
+        candidate.push({
+          role: role as "user" | "assistant" | "system",
+          content,
+        });
       }
       if (
-        seenChatItem &&
+        valid &&
         candidate.length &&
         (!bestMessages || candidate.length > bestMessages.length)
       ) {
