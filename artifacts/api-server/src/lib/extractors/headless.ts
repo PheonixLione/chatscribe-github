@@ -277,9 +277,17 @@ export async function renderPage(
         timeout: timeoutMs,
       });
     } catch (err) {
+      const msg = (err as Error).message;
+      if (IS_SERVERLESS && /timeout|timed out/i.test(msg)) {
+        throw new ExtractError(
+          "headless_unavailable",
+          "The share page did not finish loading within the serverless time budget. Please try again in a moment — a warm container usually succeeds.",
+          { source: opts.source },
+        );
+      }
       throw new ExtractError(
         "fetch_failed",
-        `Could not load the share page (${(err as Error).message}).`,
+        `Could not load the share page (${msg}).`,
         { source: opts.source },
       );
     }
