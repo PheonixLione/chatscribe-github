@@ -120,35 +120,28 @@ function parseHtml(html: string, originalUrl: string): Conversation | null {
   const $ = cheerio.load(html);
 
   const messages: ChatMessage[] = [];
-  const seen = new Set<Element>();
 
-  // Walk the document in source order so user/assistant ordering is preserved.
-  // Each assistant turn is marked by `.ds-markdown`; the user turn is the
-  // nearest preceding "row" sibling.
-  const allMarkdown = $(".ds-markdown").toArray();
-  for (const md of allMarkdown) {
-    const turn = findTurnRoot($, md);
-    if (!turn || seen.has(turn)) continue;
-    seen.add(turn);
+  // Each turn is a `.ds-message` element. Role is determined by structure:
+  // assistant turns contain `.ds-markdown` (answer) and/or `.ds-think-content`
+  // (thinking); user turns contain neither. Walk in DOM order so the
+  // conversation stays in sequence.
+  const turns = $(".ds-message").toArray();
+  for (const turn of turns) {
+    const $turn = $(turn);
+    const isAssistant =
+      $turn.find(".ds-markdown").length > 0 ||
+      $turn.find(".ds-think-content").length > 0;
 
-    // Look back through preceding turn rows for the user message.
-    const userTurn = findPreviousUserTurn($, turn, seen);
-    if (userTurn) {
-      const userText = extractUserText($, userTurn);
-      if (userText) {
-        messages.push({ role: "user", content: userText });
-        seen.add(userTurn);
-      }
-    }
-
-    const assistantText = extractAssistantText($, md);
-    if (assistantText) {
-      messages.push({ role: "assistant", content: assistantText });
+    if (isAssistant) {
+      const content = extractAssistantContent($, turn);
+      if (content) messages.push({ role: "assistant", content });
+    } else {
+      const content = extractUserContent($, turn);
+      if (content) messages.push({ role: "user", content });
     }
   }
 
-  // Fallback: if the heuristic above found nothing, try generic [data-role]
-  // selectors used by some snapshots/extensions.
+  // Fallback for older/extension snapshots that expose explicit role attrs.
   if (!messages.length) {
     $("[data-role], [data-message-author-role]").each((_, el) => {
       const role =
@@ -183,99 +176,75 @@ function parseHtml(html: string, originalUrl: string): Conversation | null {
 }
 
 /**
- * From a `.ds-markdown` element, walk up to the nearest "turn row" — the
- * outermost ancestor whose siblings are other turn rows. We approximate
- * that by climbing while the parent has only one matching markdown child
- * and stopping before the conversation root.
+ * Strip non-text children (file/image attachment chips) from a user turn
+ * and return the plain text prompt. DeepSeek wraps each attachment in
+ * `._5cadb25` (file card) or other chip-like containers; the actual
+ * prompt text lives in a sibling text bubble (`.fbb737a4` historically,
+ * but we also fall back to "anything that's not an attachment chip").
  */
-function findTurnRoot(
-  $: cheerio.CheerioAPI,
-  md: Element,
-): Element | null {
-  let cur: Element | null = md;
-  for (let depth = 0; depth < 10 && cur; depth++) {
-    const parent = cur.parent;
-    if (!parent || parent.type !== "tag") break;
-    const parentEl = parent as Element;
-    // Stop once we'd merge multiple turns into one row.
-    const mdInside = $(parentEl).find(".ds-markdown").length;
-    if (mdInside > 1) return cur;
-    cur = parentEl;
-  }
-  return cur;
-}
-
-function findPreviousUserTurn(
+function extractUserContent(
   $: cheerio.CheerioAPI,
   turn: Element,
-  seen: Set<Element>,
-): Element | null {
-  // Walk previous siblings first; if none qualifies, climb a level and try
-  // again. Stop at the first sibling that has user-styled content (no
-  // `.ds-markdown` inside, but text length > 0).
-  let cur: Element | null = turn;
-  while (cur) {
-    let prev = cur.prev;
-    while (prev) {
-      if (prev.type === "tag") {
-        const el = prev as Element;
-        if (!seen.has(el) && looksLikeUserTurn($, el)) return el;
-        // If it already contains a ds-markdown, it's another assistant
-        // turn — stop searching backwards.
-        if ($(el).find(".ds-markdown").length > 0) return null;
-      }
-      prev = prev.prev;
-    }
-    const parent = cur.parent;
-    if (!parent || parent.type !== "tag") break;
-    cur = parent as Element;
-  }
-  return null;
-}
-
-function looksLikeUserTurn($: cheerio.CheerioAPI, el: Element): boolean {
-  if ($(el).find(".ds-markdown").length > 0) return false;
-  const text = $(el).text().trim();
-  return text.length > 0;
-}
-
-function extractUserText($: cheerio.CheerioAPI, el: Element): string {
-  // User messages on DeepSeek are plain text bubbles (no markdown rendering).
-  // Preserve line breaks but otherwise treat as text.
-  const html = $(el).html() ?? "";
+): string {
+  const $turn = $(turn);
+  const $clone = $turn.clone();
+  // Remove file/image/attachment chips — anything we don't want to show.
+  $clone
+    .find(
+      "._5cadb25, " + // file attachment card
+        "img, picture, video, audio, source, " +
+        "[class*='attachment'], [class*='file-'], " +
+        "[class*='upload'], [class*='image-preview']",
+    )
+    .remove();
+  const html = $clone.html() ?? "";
   const md = htmlToMarkdown(html).trim();
   if (md) return md;
-  return $(el).text().replace(/\s+\n/g, "\n").trim();
+  return $clone.text().replace(/\s+\n/g, "\n").trim();
 }
 
-function extractAssistantText(
+/**
+ * Build the assistant's content by walking thinking/answer blocks in DOM
+ * order. Thinking blocks render as a `> **Thinking**` blockquote; answer
+ * blocks render as plain markdown. Search-result chips and other UI
+ * affordances are excluded so the transcript stays readable.
+ */
+function extractAssistantContent(
   $: cheerio.CheerioAPI,
-  md: Element,
+  turn: Element,
 ): string {
-  // Some assistant turns include a separate "thinking" block before the
-  // final answer; include it as a blockquote so it's visible but clearly
-  // demarcated from the answer.
-  const turn = findTurnRoot($, md);
-  let thinking = "";
-  if (turn) {
-    const thinkEl = $(turn)
-      .find('[class*="thinking-content"], [class*="think"]')
-      .first();
-    if (thinkEl.length) {
-      const t = htmlToMarkdown(thinkEl.html() || "").trim();
-      if (t) {
-        thinking =
-          "> **Thinking**\n>\n" +
-          t
+  const blocks = $(turn)
+    .find(".ds-think-content, .ds-markdown")
+    .toArray();
+  const parts: string[] = [];
+  for (const block of blocks) {
+    const $b = $(block);
+    const cls = $b.attr("class") || "";
+    const isThinking = /ds-think-content/.test(cls);
+    // Drop any nested attachment/image chips before serializing.
+    const $clone = $b.clone();
+    $clone
+      .find(
+        "img, picture, video, audio, source, " +
+          "[class*='attachment'], [class*='file-'], " +
+          "[class*='upload'], [class*='image-preview']",
+      )
+      .remove();
+    const text = htmlToMarkdown($clone.html() || "").trim();
+    if (!text) continue;
+    if (isThinking) {
+      parts.push(
+        "> **Thinking**\n>\n" +
+          text
             .split("\n")
             .map((l) => `> ${l}`)
-            .join("\n") +
-          "\n\n";
-      }
+            .join("\n"),
+      );
+    } else {
+      parts.push(text);
     }
   }
-  const answer = htmlToMarkdown($(md).html() || "").trim();
-  return (thinking + answer).trim();
+  return parts.join("\n\n").trim();
 }
 
 /**
