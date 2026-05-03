@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Layout } from "@/components/Layout";
+import { AdSlot } from "@/components/AdSlot";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import {
   copyToClipboard,
@@ -275,6 +276,8 @@ export function Home() {
                 </div>
               </section>
 
+              <AdSlot slot="home-top" format="leaderboard" />
+
               {/* SEO content: features grid */}
               <section aria-labelledby="features-heading" className="border-t border-border/60 pt-16">
                 <div className="text-center max-w-2xl mx-auto mb-10">
@@ -350,6 +353,8 @@ export function Home() {
                   </Link>
                 </p>
               </section>
+
+              <AdSlot slot="home-mid" format="leaderboard" />
 
               {/* SEO content: FAQ teaser */}
               <section aria-labelledby="faq-heading" className="border-t border-border/60 pt-16">
@@ -469,6 +474,8 @@ export function Home() {
                   </Button>
                 </div>
               </div>
+
+              <AdSlot slot="result-top" format="leaderboard" />
 
               <div id="conversation-content" className="space-y-8 pb-24">
                 {conversation.messages.map((msg, idx) => (
