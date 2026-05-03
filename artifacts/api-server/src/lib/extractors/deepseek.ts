@@ -59,26 +59,24 @@ export const deepseek: SourceDescriptor = {
     // 2) Headless render. The browser solves the WAF challenge JS, then
     //    React hydrates the conversation. We intercept every JSON response
     //    (DeepSeek fetches the full conversation via XHR after React boots)
-    //    so we can capture the complete message list before any virtual-list
-    //    DOM windowing occurs. Scroll is disabled: DeepSeek uses a virtual
-    //    list that removes early messages when scrolled down, so
-    //    scroll-to-bottom would give us the END only.
+    //    and accumulate all paginated batches. DeepSeek's virtual list loads
+    //    the LATEST messages first; scrolling UP triggers XHR calls for
+    //    earlier batches. We collect every batch and merge them in reverse
+    //    arrival order (latest-arriving batch = earliest messages) so the
+    //    final transcript runs from the very first message to the last.
     try {
-      let interceptedConv: Conversation | null = null;
+      const interceptedBatches: Conversation[] = [];
 
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        settleMs: 1500,
+        settleMs: 2000,
         scrollToLoad: false,
+        scrollUp: true,
         onJsonResponse: (_respUrl, body) => {
           const conv = conversationFromState(body, url.toString());
-          if (
-            conv &&
-            (!interceptedConv ||
-              conv.messages.length > interceptedConv.messages.length)
-          ) {
-            interceptedConv = conv;
+          if (conv && conv.messages.length > 0) {
+            interceptedBatches.push(conv);
           }
         },
         waitFor: {
@@ -95,8 +93,10 @@ export const deepseek: SourceDescriptor = {
         },
       });
 
-      // XHR-captured data is authoritative — complete JSON before DOM windowing.
-      if (interceptedConv) return interceptedConv;
+      // XHR-captured batches are authoritative — full JSON before DOM windowing.
+      if (interceptedBatches.length > 0) {
+        return mergeInterceptedBatches(interceptedBatches, url.toString());
+      }
 
       const conv = parseHtml(html, url.toString());
       if (conv) return conv;
@@ -425,6 +425,49 @@ function conversationFromState(
     source: SOURCE,
     sourceLabel: "DeepSeek",
     title: title || undefined,
+    url: originalUrl,
+    messages,
+    extractedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Merge paginated XHR batches into a single chronological conversation.
+ *
+ * DeepSeek loads the LATEST messages on initial page load, then serves
+ * earlier batches as the user scrolls toward the top. Batches therefore
+ * arrive in reverse chronological order: batch[0] = tail of conversation,
+ * batch[N-1] = head. Reversing the batch list restores forward order.
+ *
+ * Within each batch messages are already in sequence. Overlapping messages
+ * across batches (DeepSeek may include a small overlap for continuity) are
+ * deduplicated by role + first-100-chars of content.
+ */
+function mergeInterceptedBatches(
+  batches: Conversation[],
+  originalUrl: string,
+): Conversation {
+  if (batches.length === 1) return batches[0];
+
+  const seen = new Set<string>();
+  const messages: ChatMessage[] = [];
+
+  // Reverse so the batch that arrived LAST (= earliest messages) comes first.
+  for (const batch of [...batches].reverse()) {
+    for (const msg of batch.messages) {
+      const key = `${msg.role}\x00${msg.content.slice(0, 100)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        messages.push(msg);
+      }
+    }
+  }
+
+  const title = batches.find((b) => b.title)?.title;
+  return {
+    source: SOURCE,
+    sourceLabel: "DeepSeek",
+    title,
     url: originalUrl,
     messages,
     extractedAt: new Date().toISOString(),

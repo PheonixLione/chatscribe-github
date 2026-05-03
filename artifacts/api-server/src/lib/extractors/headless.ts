@@ -222,6 +222,16 @@ export interface RenderOptions {
   scrollToLoad?: boolean;
   scrollTimeoutMs?: number;
   /**
+   * After waitFor resolves, scroll all scrollable containers to the TOP
+   * repeatedly until scrollTop stabilises at 0. Used for virtual-list
+   * pages that load EARLIER messages when scrolled up (e.g. DeepSeek).
+   * Each scroll up triggers an XHR batch that onJsonResponse captures.
+   * Mutually exclusive with scrollToLoad — set scrollToLoad:false when
+   * using this. Skipped on serverless. Budget defaults to 20s.
+   */
+  scrollUp?: boolean;
+  scrollUpTimeoutMs?: number;
+  /**
    * Called for every JSON response the page receives. Use this to intercept
    * API responses that contain the full conversation data before the DOM is
    * rendered (avoids virtual-list truncation entirely). Only fires for
@@ -288,6 +298,64 @@ async function scrollToLoadAll(
     } else {
       stableCount = 0;
       lastHeight = height;
+    }
+  }
+}
+
+// Scroll all scrollable containers to the TOP. DeepSeek's virtual list
+// shows the latest messages on load; scrolling to position 0 triggers
+// XHR calls for earlier message batches, which onJsonResponse captures.
+const SCROLL_TOP_JS = `(function () {
+  window.scrollTo(0, 0);
+  var all = document.querySelectorAll('div,main,section,article,ul,ol');
+  for (var i = 0; i < all.length; i++) {
+    try {
+      var el = all[i];
+      if (el.scrollHeight > el.clientHeight + 50) {
+        var s = window.getComputedStyle(el);
+        if (/auto|scroll/.test(s.overflowY) || /auto|scroll/.test(s.overflow)) {
+          el.scrollTop = 0;
+        }
+      }
+    } catch (e) {}
+  }
+})()`;
+
+// Return the minimum scrollTop across all scrollable containers.
+// Reaches 0 once the user has scrolled to the very top.
+const MIN_SCROLL_TOP_JS = `(function () {
+  var min = -1;
+  var all = document.querySelectorAll('div,main,section,article');
+  for (var i = 0; i < all.length; i++) {
+    try {
+      var el = all[i];
+      if (el.scrollHeight > el.clientHeight + 50) {
+        var s = window.getComputedStyle(el);
+        if (/auto|scroll/.test(s.overflowY) || /auto|scroll/.test(s.overflow)) {
+          if (min === -1 || el.scrollTop < min) min = el.scrollTop;
+        }
+      }
+    } catch (e) {}
+  }
+  return min;
+})()`;
+
+async function scrollToTopAll(
+  page: import("puppeteer-core").Page,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let stableCount = 0;
+  let lastTop = -2;
+  while (Date.now() < deadline && stableCount < 3) {
+    await page.evaluate(SCROLL_TOP_JS);
+    await new Promise<void>((r) => setTimeout(r, 1_200));
+    const top = (await page.evaluate(MIN_SCROLL_TOP_JS)) as number;
+    if (top === lastTop) {
+      stableCount++;
+    } else {
+      stableCount = 0;
+      lastTop = top;
     }
   }
 }
@@ -432,6 +500,13 @@ export async function renderPage(
     // tight) and when the caller explicitly opts out.
     if (!IS_SERVERLESS && opts.scrollToLoad !== false) {
       await scrollToLoadAll(page, opts.scrollTimeoutMs ?? 20_000);
+    }
+
+    // Scroll to the TOP repeatedly for virtual-list pages that paginate
+    // backward (e.g. DeepSeek). Each scroll triggers an XHR batch for
+    // earlier messages, captured via onJsonResponse.
+    if (!IS_SERVERLESS && opts.scrollUp) {
+      await scrollToTopAll(page, opts.scrollUpTimeoutMs ?? 20_000);
     }
 
     if (opts.settleMs) {
