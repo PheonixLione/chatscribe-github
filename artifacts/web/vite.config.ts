@@ -65,9 +65,6 @@ export default defineConfig({
           if (id.includes("react-syntax-highlighter") || id.includes("/refractor/") || id.includes("/prismjs/")) {
             return "syntax-highlighter";
           }
-          if (id.includes("react-markdown") || id.includes("remark-") || id.includes("micromark") || id.includes("mdast") || id.includes("hast") || id.includes("unist") || id.includes("unified")) {
-            return "markdown";
-          }
           if (id.includes("jspdf") || id.includes("html2canvas") || id.includes("dompurify") || id.includes("canvg")) {
             return "pdf";
           }
@@ -75,9 +72,6 @@ export default defineConfig({
           if (id.includes("@radix-ui")) return "radix";
           if (id.includes("@tanstack/react-query")) return "react-query";
           if (id.includes("/components/ads/")) return "ads";
-          if (id.includes("/react/") || id.includes("/react-dom/") || id.includes("/scheduler/")) {
-            return "react-vendor";
-          }
           return "vendor";
         },
       },
