@@ -262,18 +262,31 @@ function parseRenderedHtml(html: string, originalUrl: string): Conversation | nu
 
       const $userQuery = $turn.find("user-query").first();
       if ($userQuery.length) {
-        // Prefer the .query-text-line paragraphs over the full user-query
-        // textContent so we drop the screen-reader "You said" prefix and
-        // the inline action buttons.
-        const lines = $userQuery
-          .find(".query-text-line, .query-text")
-          .map((_, el) => $(el).text().trim())
-          .get()
-          .filter(Boolean);
-        let userText = lines.join("\n\n").trim();
+        // Prefer .query-text-line paragraphs (clean per-line splits with no
+        // screen-reader affordances). Fall back to .query-text (the full
+        // prompt body) ONLY if no per-line elements exist — otherwise both
+        // selectors match and we'd emit the prompt twice. As a last resort
+        // serialize the whole user-query and strip the leading "You said"
+        // a11y label that Gemini injects for screen readers.
+        let userText = "";
+        const $lines = $userQuery.find(".query-text-line");
+        if ($lines.length) {
+          userText = $lines
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(Boolean)
+            .join("\n\n")
+            .trim();
+        }
+        if (!userText) {
+          const $qt = $userQuery.find(".query-text").first();
+          if ($qt.length) {
+            userText = $qt.text().replace(/^\s*You said\s*/i, "").trim();
+          }
+        }
         if (!userText) {
           userText = htmlToMarkdown($userQuery.html() || "")
-            .replace(/^You said\s*/i, "")
+            .replace(/^\s*You said\s*/i, "")
             .trim();
         }
         if (userText) {
