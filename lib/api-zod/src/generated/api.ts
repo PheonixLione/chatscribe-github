@@ -17,7 +17,7 @@ export const HealthCheckResponse = zod.object({
 
 /**
  * Accepts a public share URL from a supported AI chat platform
-(ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) and returns
+(ChatGPT, Claude, Gemini, Grok, DeepSeek) and returns
 the full ordered list of messages.
 
  * @summary Extract a conversation from a public AI chat share link
@@ -32,7 +32,7 @@ export const ExtractConversationBody = zod.object({
 
 export const ExtractConversationResponse = zod.object({
   source: zod
-    .enum(["chatgpt", "claude", "gemini", "grok", "perplexity", "deepseek"])
+    .enum(["chatgpt", "claude", "gemini", "grok", "deepseek"])
     .describe("The platform that hosted the conversation."),
   sourceLabel: zod
     .string()
@@ -67,7 +67,7 @@ export const ListSupportedSourcesResponse = zod.object({
   sources: zod.array(
     zod.object({
       source: zod
-        .enum(["chatgpt", "claude", "gemini", "grok", "perplexity", "deepseek"])
+        .enum(["chatgpt", "claude", "gemini", "grok", "deepseek"])
         .describe("The platform that hosted the conversation."),
       label: zod.string(),
       urlPatterns: zod.array(zod.string()),

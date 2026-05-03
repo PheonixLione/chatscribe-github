@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Layout } from "@/components/Layout";
+import { Layout, HOME_RESET_EVENT } from "@/components/Layout";
 import { AdSlot } from "@/components/AdSlot";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import {
@@ -54,7 +54,7 @@ const FEATURES = [
   {
     icon: Zap,
     title: "Instant extraction",
-    body: "Paste a public ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek share link and get the full conversation in seconds.",
+    body: "Paste a public ChatGPT, Claude, Gemini, Grok, or DeepSeek share link and get the full conversation in seconds.",
   },
   {
     icon: FileDown,
@@ -78,7 +78,6 @@ const PLATFORMS_PREVIEW = [
   "Claude",
   "Gemini",
   "Grok",
-  "Perplexity",
   "DeepSeek",
 ];
 
@@ -93,10 +92,10 @@ export function Home() {
   useSEO({
     title: SITE_NAME,
     description:
-      "Free tool to extract any public AI chat share link (ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) as clean Markdown, PDF, or plain text. No signup, no storage.",
+      "Free tool to extract any public AI chat share link (ChatGPT, Claude, Gemini, Grok, DeepSeek) as clean Markdown, PDF, or plain text. No signup, no storage.",
     path: "/",
     keywords:
-      "chatgpt extractor, save chatgpt conversation, claude share link, gemini chat exporter, grok share, perplexity exporter, deepseek share, ai chat to markdown, ai chat to pdf",
+      "chatgpt extractor, save chatgpt conversation, claude share link, gemini chat exporter, grok share, deepseek share, ai chat to markdown, ai chat to pdf",
   });
 
   // Inject WebSite + SearchAction structured data so Google can show
@@ -147,6 +146,29 @@ export function Home() {
     setUrl("");
     extractMutation.reset();
   };
+
+  // Listen for the global "go home" event dispatched by the header title
+  // and footer "Extract a chat" link. Even when we're already on "/", we
+  // need to clear any displayed conversation, scroll to the top, and
+  // refocus the URL input so the link feels like a real "back to start"
+  // button instead of a no-op.
+  useEffect(() => {
+    const handler = () => {
+      setConversation(null);
+      setUrl("");
+      extractMutation.reset();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Defer focus until after the form re-renders.
+      requestAnimationFrame(() => {
+        const input = document.getElementById("share-url") as HTMLInputElement | null;
+        input?.focus();
+      });
+    };
+    window.addEventListener(HOME_RESET_EVENT, handler);
+    return () => window.removeEventListener(HOME_RESET_EVENT, handler);
+    // extractMutation.reset is stable across renders for react-query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCopy = async () => {
     if (!conversation) return;
@@ -205,9 +227,9 @@ export function Home() {
                     Extract any AI chat share link
                   </h1>
                   <p className="text-lg text-muted-foreground">
-                    Paste a public ChatGPT, Claude, Gemini, Grok, Perplexity, or
-                    DeepSeek link. Get a clean Markdown, PDF, or text copy in
-                    seconds. Free, no signup.
+                    Paste a public ChatGPT, Claude, Gemini, Grok, or DeepSeek
+                    link. Get a clean Markdown, PDF, or text copy in seconds.
+                    Free, no signup.
                   </p>
                 </div>
 
@@ -375,7 +397,7 @@ export function Home() {
                     },
                     {
                       q: "Which platforms work?",
-                      a: "ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek public share links.",
+                      a: "ChatGPT, Claude, Gemini, Grok, and DeepSeek public share links.",
                     },
                   ].map((f) => (
                     <div key={f.q}>

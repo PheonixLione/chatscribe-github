@@ -145,7 +145,7 @@ export default function SaveAiConversations() {
           <p className="text-lg text-muted-foreground leading-relaxed">
             A complete, regularly-updated guide to keeping a permanent copy of
             your most important AI chats across ChatGPT, Claude, Gemini, Grok,
-            Perplexity, and DeepSeek.
+            and DeepSeek.
           </p>
         </header>
 
@@ -163,7 +163,7 @@ export default function SaveAiConversations() {
             built-in <strong>Share</strong> button to create a public link,
             paste that link into <strong>{SITE_NAME}</strong>, and download
             the result as Markdown, PDF, or plain text. This works for
-            ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek, takes
+            ChatGPT, Claude, Gemini, Grok, and DeepSeek, takes
             under 30 seconds, and preserves all formatting.
           </p>
         </aside>
@@ -256,7 +256,7 @@ export default function SaveAiConversations() {
           <ol>
             <li>
               <strong>Open the conversation</strong> in the AI tool you're
-              using (ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek).
+              using (ChatGPT, Claude, Gemini, Grok, or DeepSeek).
             </li>
             <li>
               <strong>Click the share button.</strong> Every major platform

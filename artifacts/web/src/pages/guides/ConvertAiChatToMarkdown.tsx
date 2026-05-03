@@ -5,11 +5,11 @@ export default function ConvertAiChatToMarkdown() {
     <GuideLayout
       path="/guides/convert-ai-chat-to-markdown"
       title="How to convert any AI chat to Markdown"
-      description="A platform-agnostic playbook for turning ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek conversations into clean Markdown — usable in Notion, Obsidian, GitHub, or any editor."
-      keywords="convert ai chat to markdown, ai conversation to markdown, chatgpt to markdown, claude to markdown, gemini to markdown, grok to markdown, perplexity to markdown, deepseek to markdown"
+      description="A platform-agnostic playbook for turning ChatGPT, Claude, Gemini, Grok, or DeepSeek conversations into clean Markdown — usable in Notion, Obsidian, GitHub, or any editor."
+      keywords="convert ai chat to markdown, ai conversation to markdown, chatgpt to markdown, claude to markdown, gemini to markdown, grok to markdown, deepseek to markdown"
       eyebrow="UNIVERSAL GUIDE"
       heading="How to convert any AI chat to Markdown"
-      tldr="Every major AI platform (ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) lets you generate a public share link for a conversation. Paste that link into ChatScribe and click Download as Markdown — the result is plain text that opens in any editor and preserves all formatting."
+      tldr="Every major AI platform (ChatGPT, Claude, Gemini, Grok, DeepSeek) lets you generate a public share link for a conversation. Paste that link into ChatScribe and click Download as Markdown — the result is plain text that opens in any editor and preserves all formatting."
       pillar={{
         href: "/guides/save-ai-conversations",
         title: "The complete guide to saving AI conversations",
@@ -22,7 +22,7 @@ export default function ConvertAiChatToMarkdown() {
         steps: [
           {
             name: "Generate a public share link inside the AI tool",
-            text: "Every major platform has a Share button. ChatGPT: top-right of the conversation. Claude: top-right. Gemini: Share & export menu under any response. Grok: Share button in the conversation header. Perplexity: Share icon next to the threads. DeepSeek: Share button in the chat menu.",
+            text: "Every major platform has a Share button. ChatGPT: top-right of the conversation. Claude: top-right. Gemini: Share & export menu under any response. Grok: Share button in the conversation header. DeepSeek: Share button in the chat menu.",
           },
           {
             name: "Copy the share URL",

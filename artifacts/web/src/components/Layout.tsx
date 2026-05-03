@@ -1,9 +1,31 @@
-import { ReactNode } from "react";
+import { ReactNode, MouseEvent } from "react";
 import { Link, useLocation } from "wouter";
 import { Sparkles, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { SITE_NAME } from "@/lib/seo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+export const HOME_RESET_EVENT = "chatscribe:home-reset";
+
+/**
+ * Click handler for "go home / start over" links (header title, footer
+ * "Extract a chat"). Always navigates to "/" via wouter; additionally
+ * dispatches a window event so the Home page can reset its local
+ * conversation state, scroll to top, and re-focus the URL input even
+ * when we are already on "/".
+ */
+function useGoHome() {
+  const [, navigate] = useLocation();
+  return (e: MouseEvent<HTMLAnchorElement>) => {
+    // Honor modifier-clicks (open in new tab/window/etc.).
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) {
+      return;
+    }
+    e.preventDefault();
+    navigate("/");
+    window.dispatchEvent(new Event(HOME_RESET_EVENT));
+  };
+}
 
 const NAV: { href: string; label: string }[] = [
   { href: "/guides", label: "Guides" },
@@ -16,6 +38,7 @@ const NAV: { href: string; label: string }[] = [
 function Header() {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  const goHome = useGoHome();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -23,14 +46,18 @@ function Header() {
         className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between"
         aria-label="Primary"
       >
-        <Link
+        <a
           href="/"
-          className="flex items-center gap-2 font-semibold text-foreground hover:text-primary transition-colors"
-          onClick={() => setOpen(false)}
+          className="flex items-center gap-2 font-semibold text-foreground hover:text-primary transition-colors cursor-pointer"
+          onClick={(e) => {
+            setOpen(false);
+            goHome(e);
+          }}
+          aria-label={`${SITE_NAME} — back to home`}
         >
           <Sparkles className="w-4 h-4 text-primary" />
           <span>{SITE_NAME}</span>
-        </Link>
+        </a>
 
         <div className="hidden md:flex items-center gap-6 text-sm">
           <ul className="flex items-center gap-6">
@@ -90,6 +117,7 @@ function Header() {
 }
 
 function Footer() {
+  const goHome = useGoHome();
   return (
     <footer className="border-t border-border/60 mt-16">
       <div className="max-w-6xl mx-auto px-4 py-10 grid gap-8 sm:grid-cols-2 md:grid-cols-4 text-sm">
@@ -106,7 +134,7 @@ function Footer() {
         <div>
           <h2 className="text-foreground font-medium mb-3">Product</h2>
           <ul className="space-y-2 text-muted-foreground">
-            <li><Link href="/" className="hover:text-foreground">Extract a chat</Link></li>
+            <li><a href="/" onClick={goHome} className="hover:text-foreground cursor-pointer">Extract a chat</a></li>
             <li><Link href="/how-it-works" className="hover:text-foreground">How it works</Link></li>
             <li><Link href="/supported-platforms" className="hover:text-foreground">Supported platforms</Link></li>
           </ul>
@@ -135,7 +163,7 @@ function Footer() {
       <div className="border-t border-border/60">
         <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <span>© {new Date().getFullYear()} {SITE_NAME}. All rights reserved.</span>
-          <span className="font-mono">Not affiliated with OpenAI, Anthropic, Google, xAI, Perplexity, or DeepSeek.</span>
+          <span className="font-mono">Not affiliated with OpenAI, Anthropic, Google, xAI, or DeepSeek.</span>
         </div>
       </div>
     </footer>

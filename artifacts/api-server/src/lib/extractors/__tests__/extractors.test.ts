@@ -56,16 +56,6 @@ const CASES: Case[] = [
     expectedRoles: ["user", "assistant", "user", "assistant"],
   },
   {
-    name: "perplexity",
-    url: "https://www.perplexity.ai/search/quantum-entanglement-abcd1234",
-    fixture: "perplexity.html",
-    expectedSource: "perplexity",
-    expectedTitle: "What is quantum entanglement",
-    expectedFirstUserContains: "quantum entanglement",
-    expectedFirstAssistantContains: "Quantum entanglement",
-    expectedRoles: ["user", "assistant"],
-  },
-  {
     name: "deepseek",
     url: "https://chat.deepseek.com/share/abcd1234",
     fixture: "deepseek.html",

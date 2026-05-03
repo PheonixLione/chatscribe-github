@@ -2,7 +2,6 @@ import { chatgpt } from "./chatgpt";
 import { claude } from "./claude";
 import { gemini } from "./gemini";
 import { grok } from "./grok";
-import { perplexity } from "./perplexity";
 import { deepseek } from "./deepseek";
 import { ExtractError, type Conversation, type SourceDescriptor } from "./types";
 
@@ -11,7 +10,6 @@ export const SOURCES: SourceDescriptor[] = [
   claude,
   gemini,
   grok,
-  perplexity,
   deepseek,
 ];
 

@@ -111,7 +111,7 @@ export function useHealthCheck<
 
 /**
  * Accepts a public share URL from a supported AI chat platform
-(ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek) and returns
+(ChatGPT, Claude, Gemini, Grok, DeepSeek) and returns
 the full ordered list of messages.
 
  * @summary Extract a conversation from a public AI chat share link

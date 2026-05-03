@@ -74,7 +74,7 @@ export default function ExportClaudeToMarkdown() {
           href: "/guides/convert-ai-chat-to-markdown",
           title: "Convert any AI chat to Markdown",
           description:
-            "Cover ChatGPT, Gemini, Grok, Perplexity, and DeepSeek with one playbook.",
+            "Cover ChatGPT, Gemini, Grok, and DeepSeek with one playbook.",
         },
         {
           href: "/guides/download-gemini-chat",

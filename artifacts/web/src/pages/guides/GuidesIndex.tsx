@@ -7,7 +7,7 @@ const PILLAR = {
   href: "/guides/save-ai-conversations",
   title: "The complete guide to saving AI conversations",
   description:
-    "Why AI chats disappear, what your options are, and how to keep a permanent searchable copy of every important conversation — across ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek.",
+    "Why AI chats disappear, what your options are, and how to keep a permanent searchable copy of every important conversation — across ChatGPT, Claude, Gemini, Grok, and DeepSeek.",
 };
 
 const SPOKES = [
@@ -39,7 +39,7 @@ const SPOKES = [
     href: "/guides/convert-ai-chat-to-markdown",
     title: "How to convert any AI chat to Markdown",
     description:
-      "A platform-agnostic playbook for turning ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek conversations into clean Markdown.",
+      "A platform-agnostic playbook for turning ChatGPT, Claude, Gemini, Grok, or DeepSeek conversations into clean Markdown.",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function GuidesIndex() {
   useSEO({
     title: "Guides — How to save and export AI conversations",
     description:
-      "Step-by-step guides for saving, exporting, and archiving AI chat conversations from ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek.",
+      "Step-by-step guides for saving, exporting, and archiving AI chat conversations from ChatGPT, Claude, Gemini, Grok, and DeepSeek.",
     path: "/guides",
     keywords:
       "ai chat guides, save chatgpt, export claude, download gemini chat, save grok, ai conversation to markdown, ai chat to pdf",

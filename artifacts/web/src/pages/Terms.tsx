@@ -79,7 +79,7 @@ export default function Terms() {
 
         <h2>Trademarks</h2>
         <p>
-          ChatGPT, Claude, Gemini, Grok, Perplexity, DeepSeek, and all related
+          ChatGPT, Claude, Gemini, Grok, DeepSeek, and all related
           marks are the property of their respective owners. ChatScribe is
           an independent project and is not affiliated with, endorsed by, or
           sponsored by any of these companies.

@@ -40,13 +40,6 @@ const PLATFORMS: PlatformInfo[] = [
       "In Grok (on grok.com or X), open the conversation menu and select \"Share\" to generate a public link.",
   },
   {
-    name: "Perplexity",
-    hosts: ["perplexity.ai/search/..."],
-    example: "https://www.perplexity.ai/search/your-question-abcd1234",
-    howToShare:
-      "Perplexity search threads are public by default. Just copy the URL of the thread you want to extract.",
-  },
-  {
     name: "DeepSeek",
     hosts: ["chat.deepseek.com/share/..."],
     example: "https://chat.deepseek.com/share/abcd1234",
@@ -59,10 +52,10 @@ export default function SupportedPlatforms() {
   useSEO({
     title: "Supported AI Platforms",
     description:
-      "ChatScribe supports ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek public share links. See the URL formats we accept and how to share from each platform.",
+      "ChatScribe supports ChatGPT, Claude, Gemini, Grok, and DeepSeek public share links. See the URL formats we accept and how to share from each platform.",
     path: "/supported-platforms",
     keywords:
-      "extract chatgpt share link, claude share link extractor, gemini chat exporter, grok share extractor, perplexity exporter, deepseek share",
+      "extract chatgpt share link, claude share link extractor, gemini chat exporter, grok share extractor, deepseek share",
   });
 
   return (

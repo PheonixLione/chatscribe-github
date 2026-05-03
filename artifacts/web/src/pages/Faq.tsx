@@ -24,7 +24,7 @@ const FAQ: QA[] = [
   },
   {
     q: "Which AI platforms are supported?",
-    a: "ChatGPT (chatgpt.com / chat.openai.com), Claude (claude.ai), Gemini (gemini.google.com), Grok (grok.com / x.com), Perplexity, and DeepSeek. See the Supported Platforms page for URL formats.",
+    a: "ChatGPT (chatgpt.com / chat.openai.com), Claude (claude.ai), Gemini (gemini.google.com), Grok (grok.com / x.com), and DeepSeek. See the Supported Platforms page for URL formats.",
   },
   {
     q: "What output formats can I download?",
@@ -47,7 +47,7 @@ const FAQ: QA[] = [
     a: "Code blocks, ordered/unordered lists, tables, and inline formatting are preserved as Markdown. Images that were generated or uploaded inside the share are referenced by URL where the platform exposes them.",
   },
   {
-    q: "Is this affiliated with OpenAI, Anthropic, Google, xAI, Perplexity, or DeepSeek?",
+    q: "Is this affiliated with OpenAI, Anthropic, Google, xAI, or DeepSeek?",
     a: "No. ChatScribe is an independent tool. All product names and trademarks belong to their respective owners.",
   },
 ];

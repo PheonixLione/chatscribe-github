@@ -5,7 +5,6 @@ export type ChatSource =
   | "claude"
   | "gemini"
   | "grok"
-  | "perplexity"
   | "deepseek";
 
 export interface ChatMessage {

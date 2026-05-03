@@ -7,7 +7,7 @@ export default function HowItWorks() {
   useSEO({
     title: "How It Works",
     description:
-      "Learn how ChatScribe turns a public ChatGPT, Claude, Gemini, Grok, Perplexity, or DeepSeek share link into clean Markdown, PDF, or text in seconds.",
+      "Learn how ChatScribe turns a public ChatGPT, Claude, Gemini, Grok, or DeepSeek share link into clean Markdown, PDF, or text in seconds.",
     path: "/how-it-works",
     keywords:
       "how to extract chatgpt conversation, save claude chat, export gemini chat, download grok conversation",
@@ -24,7 +24,7 @@ export default function HowItWorks() {
         <p>
           Open the AI chat you want to save and use the platform's built-in
           <strong> Share </strong> action to generate a public link. We support
-          ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek shares —
+          ChatGPT, Claude, Gemini, Grok, and DeepSeek shares —
           <Link href="/supported-platforms"> see the full list</Link>.
         </p>
         <p>

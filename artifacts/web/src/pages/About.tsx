@@ -7,7 +7,7 @@ export default function About() {
   useSEO({
     title: "About ChatScribe",
     description:
-      "ChatScribe is a free, privacy-respecting tool for saving public AI chat conversations from ChatGPT, Claude, Gemini, Grok, Perplexity, and DeepSeek.",
+      "ChatScribe is a free, privacy-respecting tool for saving public AI chat conversations from ChatGPT, Claude, Gemini, Grok, and DeepSeek.",
     path: "/about",
     keywords:
       "about chat extractor, ai conversation saver, free ai chat tool, privacy-focused ai exporter",
@@ -63,7 +63,7 @@ export default function About() {
         <p>
           ChatScribe is an independent project. It is not affiliated with,
           endorsed by, or sponsored by OpenAI, Anthropic, Google, xAI,
-          Perplexity, DeepSeek, or any other AI platform. All trademarks belong
+          DeepSeek, or any other AI platform. All trademarks belong
           to their respective owners. We only access content that the platform
           itself has chosen to make public via a share link.
         </p>

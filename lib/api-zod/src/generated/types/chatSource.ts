@@ -16,6 +16,5 @@ export const ChatSource = {
   claude: "claude",
   gemini: "gemini",
   grok: "grok",
-  perplexity: "perplexity",
   deepseek: "deepseek",
 } as const;
