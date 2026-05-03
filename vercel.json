@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm install --no-frozen-lockfile && pnpm --filter @workspace/web build",
+  "buildCommand": "pnpm --filter @workspace/web build",
   "outputDirectory": "artifacts/web/dist/public",
   "framework": null,
-  "installCommand": "echo 'install handled in buildCommand'",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "functions": {
     "api/[...all].ts": {
       "maxDuration": 10
