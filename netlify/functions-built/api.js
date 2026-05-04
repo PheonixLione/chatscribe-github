@@ -19372,7 +19372,7 @@ var require_finalhandler = __commonJS({
     module2.exports = finalhandler;
     function finalhandler(req, res, options) {
       var opts = options || {};
-      var env2 = opts.env || process.env.NODE_ENV || "development";
+      var env2 = opts.env || "production";
       var onerror = opts.onerror;
       return function(err) {
         var headers;
@@ -21720,7 +21720,7 @@ var require_application = __commonJS({
       });
     };
     app2.defaultConfiguration = function defaultConfiguration() {
-      var env2 = process.env.NODE_ENV || "development";
+      var env2 = "production";
       this.enable("x-powered-by");
       this.set("etag", "weak");
       this.set("env", env2);
@@ -170420,7 +170420,7 @@ async function extractFromUrl(rawUrl) {
 
 // ../artifacts/api-server/src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
-var isProduction = process.env.NODE_ENV === "production" || !!process.env.NETLIFY || !!process.env.VERCEL;
+var isProduction = true;
 var logger = (0, import_pino.default)({
   level: process.env.LOG_LEVEL ?? "info",
   redact: [

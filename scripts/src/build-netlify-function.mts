@@ -58,6 +58,7 @@ const result = await build({
   logLevel: "warning",
   define: {
     "import.meta.url": "__nv_import_meta_url",
+    "process.env.NODE_ENV": '"production"',
   },
   banner: {
     js: "const __nv_import_meta_url = require('url').pathToFileURL(__filename).href;",
