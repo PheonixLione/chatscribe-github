@@ -170420,7 +170420,7 @@ async function extractFromUrl(rawUrl) {
 
 // ../artifacts/api-server/src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
-var isProduction = process.env.NODE_ENV === "production";
+var isProduction = process.env.NODE_ENV === "production" || !!process.env.NETLIFY || !!process.env.VERCEL;
 var logger = (0, import_pino.default)({
   level: process.env.LOG_LEVEL ?? "info",
   redact: [
