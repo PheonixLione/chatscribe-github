@@ -98,7 +98,7 @@ export const grok: SourceDescriptor = {
       const conv = parseRenderedHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (isUnrecoverable(err)) throw err;
+      if (err instanceof ExtractError) throw err;
       // fall through
     }
 

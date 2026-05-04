@@ -169117,7 +169117,7 @@ var claude = {
       const conv = parseRenderedHtml2(html3, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (isUnrecoverable(err)) throw err;
+      if (err instanceof ExtractError) throw err;
     }
     if (staticErr) throw staticErr;
     throw new ExtractError(
@@ -169821,7 +169821,7 @@ var grok = {
       const conv = parseRenderedHtml4(html3, url.toString());
       if (conv) return conv;
     } catch (err) {
-      if (isUnrecoverable(err)) throw err;
+      if (err instanceof ExtractError) throw err;
     }
     if (staticErr) throw staticErr;
     throw new ExtractError(
