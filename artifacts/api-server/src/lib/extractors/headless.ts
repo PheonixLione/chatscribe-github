@@ -24,7 +24,7 @@ import { ExtractError, type ChatSource } from "./types";
  */
 
 const IS_SERVERLESS =
-  process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+  process.env.NETLIFY === "true" || process.env.VERCEL === "1";
 
 /**
  * Minimal structural type for the bits of `@sparticuz/chromium-min` we

@@ -168210,7 +168210,7 @@ function detectPrivateOrMissing(html3, source2) {
 // ../artifacts/api-server/src/lib/extractors/headless.ts
 var import_node_fs2 = require("node:fs");
 var import_node_path2 = require("node:path");
-var IS_SERVERLESS = process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+var IS_SERVERLESS = true;
 async function loadChromiumMin() {
   const mod = await Promise.resolve().then(() => (init_esm(), esm_exports5));
   return mod.default;
@@ -168845,7 +168845,7 @@ function walkAll(value, visitor) {
 
 // ../artifacts/api-server/src/lib/extractors/chatgpt.ts
 var SOURCE = "chatgpt";
-var IS_SERVERLESS2 = process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+var IS_SERVERLESS2 = true;
 var isAllowedHost = (u) => {
   const h = u.hostname.toLowerCase();
   return (h === "chatgpt.com" || h === "www.chatgpt.com" || h === "chat.openai.com") && u.pathname.startsWith("/share/");
@@ -169974,7 +169974,7 @@ function scrapeArrayLike(text3) {
 
 // ../artifacts/api-server/src/lib/extractors/deepseek.ts
 var SOURCE5 = "deepseek";
-var IS_SERVERLESS3 = process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+var IS_SERVERLESS3 = true;
 var isAllowedHost4 = (u) => {
   const h = u.hostname.toLowerCase();
   return h === "chat.deepseek.com" || h === "deepseek.com" || h === "www.deepseek.com";
@@ -170438,7 +170438,7 @@ var logger = (0, import_pino.default)({
 
 // ../artifacts/api-server/src/routes/extract.ts
 var router2 = (0, import_express2.Router)();
-var IS_SERVERLESS4 = process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+var IS_SERVERLESS4 = true;
 function readPositiveInt(name, fallback) {
   const raw = process.env[name];
   if (raw === void 0 || raw === "") return fallback;
@@ -170572,7 +170572,7 @@ router3.use(extract_default);
 var routes_default = router3;
 
 // ../artifacts/api-server/src/app.ts
-var IS_SERVERLESS5 = process.env["NETLIFY"] === "true" || process.env["VERCEL"] === "1";
+var IS_SERVERLESS5 = true;
 var app = (0, import_express4.default)();
 app.set("trust proxy", 1);
 if (!IS_SERVERLESS5) {
