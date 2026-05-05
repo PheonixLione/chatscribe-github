@@ -3,7 +3,7 @@ import type { Element } from "domhandler";
 import { fetchPage } from "./http";
 import { renderPage } from "./headless";
 import { htmlToMarkdown } from "./markdown";
-import { getArray, getString, isObject, walk } from "./json";
+import { getArray, getString, isObject, walk, walkAll } from "./json";
 import {
   ExtractError,
   isUnrecoverable,
@@ -66,9 +66,10 @@ export const claude: SourceDescriptor = {
 
     // 2) Headless render. The Cloudflare challenge auto-clears once the
     //    page proves it can run real JS, then React hydrates the
-    //    transcript. We intercept the XHR response that contains the full
-    //    conversation JSON (bypasses virtual-list truncation entirely) and
-    //    fall back to DOM parsing if interception yields nothing.
+    //    transcript. We intercept all JSON XHR responses and try two
+    //    parsing strategies (chat_messages native format, then a generic
+    //    role+content finder) to capture the full conversation before
+    //    virtual-list truncation. DOM parsing is the final fallback.
     try {
       let interceptedConv: ParsedConv | null = null;
 
@@ -76,16 +77,35 @@ export const claude: SourceDescriptor = {
         source: SOURCE,
         timeoutMs: 90_000,
         settleMs: 800,
-        responseUrlIncludes: ["/api/", "share"],
+        // No responseUrlIncludes filter — capture all JSON so we don't miss
+        // Claude's API endpoint regardless of its URL shape.
         onJsonResponse: (respUrl, body) => {
           process.stderr.write(`[claude] intercepted ${respUrl}\n`);
           if (interceptedConv) return;
+
+          // Strategy 1: native chat_messages structure
           const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));
-          if (!isObject(found)) return;
-          const parsed = parseClaudeMessages(found);
-          if (parsed && parsed.messages.length > 0) {
-            interceptedConv = parsed;
-            process.stderr.write(`[claude] captured ${parsed.messages.length} msgs from XHR\n`);
+          if (isObject(found)) {
+            const parsed = parseClaudeMessages(found);
+            if (parsed && parsed.messages.length > 0) {
+              interceptedConv = parsed;
+              process.stderr.write(`[claude] XHR chat_messages: ${parsed.messages.length} msgs\n`);
+              return;
+            }
+          }
+
+          // Strategy 2: generic role+content array (handles alternate API shapes)
+          const msgs = extractMessagesFromJson(body);
+          if (msgs && msgs.length > 0) {
+            let title: string | undefined;
+            walk(body, (v) => {
+              if (title) return null;
+              const t = getString(v, "name") ?? getString(v, "title");
+              if (t && t.length < 300) { title = t; return t; }
+              return null;
+            });
+            interceptedConv = { title, messages: msgs };
+            process.stderr.write(`[claude] XHR generic: ${msgs.length} msgs\n`);
           }
         },
         bailOut: () => interceptedConv !== null,
@@ -101,13 +121,16 @@ export const claude: SourceDescriptor = {
 
       // XHR-captured data is authoritative — full JSON before virtual-list truncation.
       if (interceptedConv) {
-        const title = (interceptedConv as ParsedConv).title ?? parseTitle(cheerio.load(html));
+        // Cast needed: TS narrows closure-assigned `let` to the initial `null`
+        // type and can't see the assignment made inside onJsonResponse.
+        const captured = interceptedConv as unknown as ParsedConv;
+        const title = captured.title ?? parseTitle(cheerio.load(html));
         return {
           source: SOURCE,
           sourceLabel: "Claude",
           title,
           url: url.toString(),
-          messages: (interceptedConv as ParsedConv).messages,
+          messages: captured.messages,
           extractedAt: new Date().toISOString(),
         };
       }
@@ -308,6 +331,65 @@ function sliceBalancedObject(text: string, atIndex: number): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Generic fallback: walk any JSON blob and find the largest array whose
+ * items all have a recognisable role (user/human/assistant) plus text content.
+ * Handles API shapes that don't use the `chat_messages` key.
+ */
+function extractMessagesFromJson(data: unknown): ChatMessage[] | null {
+  let best: ChatMessage[] | null = null;
+  walkAll(data, (node) => {
+    for (const key of Object.keys(node)) {
+      const arr = node[key];
+      if (!Array.isArray(arr) || arr.length < 2) continue;
+      const candidate: ChatMessage[] = [];
+      let valid = true;
+      for (const item of arr) {
+        if (!isObject(item)) { valid = false; break; }
+        const rawRole =
+          getString(item, "role") ??
+          getString(item, "sender") ??
+          getString(item, "author");
+        if (!rawRole) { valid = false; break; }
+        const role =
+          rawRole === "human" || rawRole === "user" ? "user" : "assistant";
+        if (role !== "user" && role !== "assistant") { valid = false; break; }
+
+        let content = "";
+        const contentArr = getArray(item, "content");
+        if (contentArr) {
+          content = contentArr
+            .map((c) => {
+              if (typeof c === "string") return c;
+              if (isObject(c)) {
+                const type = getString(c, "type");
+                const text = getString(c, "text");
+                if ((type === "text" || !type) && text) return text;
+              }
+              return "";
+            })
+            .filter(Boolean)
+            .join("\n\n");
+        } else {
+          content = getString(item, "text") ?? getString(item, "content") ?? "";
+        }
+        content = content.trim();
+        // Skip non-text turns (tool_use only) but don't invalidate the array.
+        if (!content) continue;
+        candidate.push({ role, content });
+      }
+      if (
+        valid &&
+        candidate.length >= 2 &&
+        (!best || candidate.length > best.length)
+      ) {
+        best = candidate;
+      }
+    }
+  });
+  return best;
 }
 
 function parseClaudeMessages(obj: Record<string, unknown>): ParsedConv | null {
