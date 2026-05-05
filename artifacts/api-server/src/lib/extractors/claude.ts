@@ -64,32 +64,28 @@ export const claude: SourceDescriptor = {
       }
     }
 
-    // 2) Headless render. The Cloudflare challenge auto-clears once the
-    //    page proves it can run real JS, then React hydrates the
-    //    transcript. We intercept all JSON XHR responses and try two
-    //    parsing strategies (chat_messages native format, then a generic
-    //    role+content finder) to capture the full conversation before
-    //    virtual-list truncation. DOM parsing is the final fallback.
+    // 2) Headless render. Claude paginates via XHR — the chat_snapshots
+    //    endpoint returns ~8 msgs per call and fires again as the user
+    //    scrolls. We accumulate every batch, then merge them in arrival
+    //    order (chronological). DOM parsing is the final fallback.
     try {
-      let interceptedConv: ParsedConv | null = null;
+      const interceptedBatches: ParsedConv[] = [];
 
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        settleMs: 800,
-        // No responseUrlIncludes filter — capture all JSON so we don't miss
-        // Claude's API endpoint regardless of its URL shape.
+        settleMs: 1_500,
+        // scrollToLoad (default true) scrolls the page to trigger XHR pages.
         onJsonResponse: (respUrl, body) => {
-          process.stderr.write(`[claude] intercepted ${respUrl}\n`);
-          if (interceptedConv) return;
-
           // Strategy 1: native chat_messages structure
           const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));
           if (isObject(found)) {
             const parsed = parseClaudeMessages(found);
             if (parsed && parsed.messages.length > 0) {
-              interceptedConv = parsed;
-              process.stderr.write(`[claude] XHR chat_messages: ${parsed.messages.length} msgs\n`);
+              interceptedBatches.push(parsed);
+              process.stderr.write(
+                `[claude] XHR batch ${interceptedBatches.length}: ${parsed.messages.length} msgs from ${respUrl}\n`,
+              );
               return;
             }
           }
@@ -104,11 +100,12 @@ export const claude: SourceDescriptor = {
               if (t && t.length < 300) { title = t; return t; }
               return null;
             });
-            interceptedConv = { title, messages: msgs };
-            process.stderr.write(`[claude] XHR generic: ${msgs.length} msgs\n`);
+            interceptedBatches.push({ title, messages: msgs });
+            process.stderr.write(
+              `[claude] XHR generic batch ${interceptedBatches.length}: ${msgs.length} msgs\n`,
+            );
           }
         },
-        bailOut: () => interceptedConv !== null,
         waitFor: {
           fn: `
             if (/just a moment|verifying|cloudflare/i.test(document.title || "")) return false;
@@ -119,20 +116,13 @@ export const claude: SourceDescriptor = {
         },
       });
 
-      // XHR-captured data is authoritative — full JSON before virtual-list truncation.
-      if (interceptedConv) {
-        // Cast needed: TS narrows closure-assigned `let` to the initial `null`
-        // type and can't see the assignment made inside onJsonResponse.
-        const captured = interceptedConv as unknown as ParsedConv;
-        const title = captured.title ?? parseTitle(cheerio.load(html));
-        return {
-          source: SOURCE,
-          sourceLabel: "Claude",
-          title,
-          url: url.toString(),
-          messages: captured.messages,
-          extractedAt: new Date().toISOString(),
-        };
+      process.stderr.write(`[claude] total XHR batches: ${interceptedBatches.length}\n`);
+
+      // XHR-captured batches are authoritative — merge in arrival order
+      // (Claude paginates forward: earliest messages arrive first).
+      if (interceptedBatches.length > 0) {
+        const merged = mergeClaudeBatches(interceptedBatches, url.toString());
+        if (merged.messages.length > 0) return merged;
       }
 
       const conv = parseRenderedHtml(html, url.toString());
@@ -331,6 +321,35 @@ function sliceBalancedObject(text: string, atIndex: number): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Merge paginated XHR batches into one chronological conversation.
+ * Claude pages forward (earliest batch arrives first), so arrival order
+ * is already chronological. Deduplicate by role+full-content to handle
+ * any overlap between adjacent pages.
+ */
+function mergeClaudeBatches(batches: ParsedConv[], originalUrl: string): Conversation {
+  const seen = new Set<string>();
+  const messages: ChatMessage[] = [];
+  for (const batch of batches) {
+    for (const msg of batch.messages) {
+      const key = `${msg.role}\x00${msg.content}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        messages.push(msg);
+      }
+    }
+  }
+  const title = batches.find((b) => b.title)?.title;
+  return {
+    source: SOURCE,
+    sourceLabel: "Claude",
+    title,
+    url: originalUrl,
+    messages,
+    extractedAt: new Date().toISOString(),
+  };
 }
 
 /**
