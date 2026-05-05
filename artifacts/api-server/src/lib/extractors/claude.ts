@@ -66,22 +66,29 @@ export const claude: SourceDescriptor = {
 
     // 2) Headless render. The Cloudflare challenge auto-clears once the
     //    page proves it can run real JS, then React hydrates the
-    //    transcript. We wait for at least one user-message bubble.
+    //    transcript. We intercept the XHR response that contains the full
+    //    conversation JSON (bypasses virtual-list truncation entirely) and
+    //    fall back to DOM parsing if interception yields nothing.
     try {
+      let interceptedConv: ParsedConv | null = null;
+
       const { html } = await renderPage(url.toString(), {
         source: SOURCE,
         timeoutMs: 90_000,
-        // Claude hydrates within ~200 ms once Cloudflare clears.
-        // Trimmed from 1500 ms to 800 ms.
         settleMs: 800,
         responseUrlIncludes: ["/api/", "share"],
-        onJsonResponse: (respUrl) => {
-          // Diagnostic: surface any unauthenticated share-content endpoint
-          // Claude may expose so we can wire a direct API call later.
-          if (respUrl.includes("/api/") && respUrl.includes("share")) {
-            process.stderr.write(`[claude] intercepted ${respUrl}\n`);
+        onJsonResponse: (respUrl, body) => {
+          process.stderr.write(`[claude] intercepted ${respUrl}\n`);
+          if (interceptedConv) return;
+          const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));
+          if (!isObject(found)) return;
+          const parsed = parseClaudeMessages(found);
+          if (parsed && parsed.messages.length > 0) {
+            interceptedConv = parsed;
+            process.stderr.write(`[claude] captured ${parsed.messages.length} msgs from XHR\n`);
           }
         },
+        bailOut: () => interceptedConv !== null,
         waitFor: {
           fn: `
             if (/just a moment|verifying|cloudflare/i.test(document.title || "")) return false;
@@ -91,6 +98,20 @@ export const claude: SourceDescriptor = {
           `,
         },
       });
+
+      // XHR-captured data is authoritative — full JSON before virtual-list truncation.
+      if (interceptedConv) {
+        const title = (interceptedConv as ParsedConv).title ?? parseTitle(cheerio.load(html));
+        return {
+          source: SOURCE,
+          sourceLabel: "Claude",
+          title,
+          url: url.toString(),
+          messages: (interceptedConv as ParsedConv).messages,
+          extractedAt: new Date().toISOString(),
+        };
+      }
+
       const conv = parseRenderedHtml(html, url.toString());
       if (conv) return conv;
     } catch (err) {
