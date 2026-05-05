@@ -75,7 +75,14 @@ export const claude: SourceDescriptor = {
         source: SOURCE,
         timeoutMs: 90_000,
         settleMs: 1_500,
-        // scrollToLoad (default true) scrolls the page to trigger XHR pages.
+        // Force a high limit on the chat_snapshots endpoint so we get
+        // all messages in one call instead of the default page size (~8).
+        modifyRequestUrl: (reqUrl) => {
+          if (reqUrl.includes("chat_snapshots") && !reqUrl.includes("limit=")) {
+            return reqUrl + "&limit=1000";
+          }
+          return null;
+        },
         onJsonResponse: (respUrl, body) => {
           // Strategy 1: native chat_messages structure
           const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));

@@ -269,6 +269,13 @@ export interface RenderOptions {
    * payload already contains the full conversation.
    */
   bailOut?: () => boolean;
+  /**
+   * Called for every non-blocked request before it goes out. Return a new
+   * URL string to rewrite the request URL, or null/undefined to leave it
+   * unchanged. Useful for appending limit/pagination params to API calls
+   * that the browser would otherwise fire with a default (small) page size.
+   */
+  modifyRequestUrl?: (url: string) => string | null | undefined;
 }
 
 export interface RenderResult {
@@ -449,6 +456,9 @@ export async function renderPage(
       const t = req.resourceType();
       if (t === "image" || t === "media" || t === "font") {
         req.abort().catch(() => {});
+      } else if (opts.modifyRequestUrl) {
+        const newUrl = opts.modifyRequestUrl(req.url());
+        req.continue(newUrl ? { url: newUrl } : {}).catch(() => {});
       } else {
         req.continue().catch(() => {});
       }
