@@ -77,6 +77,14 @@ export const claude: SourceDescriptor = {
         settleMs: 1_500,
         // scrollToLoad (default true) scrolls the page to trigger XHR pages.
         onJsonResponse: (respUrl, body) => {
+          // Dump snapshot body so we can see the real API shape.
+          if (respUrl.includes("chat_snapshots")) {
+            try {
+              process.stderr.write(
+                `[claude] snapshot body (first 4000): ${JSON.stringify(body).slice(0, 4000)}\n`,
+              );
+            } catch { /* ignore */ }
+          }
           // Strategy 1: native chat_messages structure
           const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));
           if (isObject(found)) {
