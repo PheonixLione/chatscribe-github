@@ -77,22 +77,18 @@ export const claude: SourceDescriptor = {
         settleMs: 1_500,
         // scrollToLoad (default true) scrolls the page to trigger XHR pages.
         onJsonResponse: (respUrl, body) => {
-          // Dump snapshot body so we can see the real API shape.
-          if (respUrl.includes("chat_snapshots")) {
-            try {
-              process.stderr.write(
-                `[claude] snapshot body (first 4000): ${JSON.stringify(body).slice(0, 4000)}\n`,
-              );
-            } catch { /* ignore */ }
-          }
           // Strategy 1: native chat_messages structure
           const found = walk(body, (v) => (getArray(v, "chat_messages") ? v : null));
           if (isObject(found)) {
+            const rawMsgs = getArray(found, "chat_messages");
+            process.stderr.write(
+              `[claude] snapshot: ${rawMsgs?.length ?? 0} raw msgs in chat_messages from ${respUrl}\n`,
+            );
             const parsed = parseClaudeMessages(found);
             if (parsed && parsed.messages.length > 0) {
               interceptedBatches.push(parsed);
               process.stderr.write(
-                `[claude] XHR batch ${interceptedBatches.length}: ${parsed.messages.length} msgs from ${respUrl}\n`,
+                `[claude] XHR batch ${interceptedBatches.length}: ${parsed.messages.length} parsed msgs\n`,
               );
               return;
             }
